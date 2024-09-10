@@ -1,0 +1,46 @@
+[project]
+name = "Livenodes-IO-Python"
+dynamic = ['version']
+description = "LiveNodes: node based live streaming sensor/data and visualization suite."
+authors = [
+    { name = "Yale Hartmann", email = "yale.hartmann@uni-bremen.de" }
+]
+# TODO: figure out how/if to add livenodes here... for now install manually in venv via:
+# pip install . --extra-index-url https://package_puller:8qYs4hBAsmAHJ5AdS_y9@gitlab.csl.uni-bremen.de/api/v4/groups/368/-/packages/pypi/simple
+# pip install -e . --extra-index-url https://package_puller:8qYs4hBAsmAHJ5AdS_y9@gitlab.csl.uni-bremen.de/api/v4/groups/368/-/packages/pypi/simple
+dependencies = [
+    "livenodes>=v0.11.3",
+    "livenodes_common_ports",
+    "numpy>=1.24.4",
+    "setuptools>=60.0.0, <67"
+]
+# setuptools version is specified due to a problem in livenodes (presumably phx-class-registry), which causes an deprectation error
+# Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+# FIX upstream and remove here
+
+[project.entry-points."livenodes.nodes"]
+macro = "livenodes_io_python.macro:Macro"
+
+[project.optional-dependencies]
+dev = [
+    "tox",
+    "pytest>=8.2.2",
+    "livenodes_io_python"
+]
+
+[build-system]
+requires = [
+    "setuptools>=60.0.0, <67.3.0",
+    "wheel",
+    "setuptools_scm >= 2.0.0, <3",
+    "setuptools-git-versioning"
+]
+build-backend = 'setuptools.build_meta'
+
+[tool.setuptools-git-versioning]
+enabled = true
+
+[tool.black]
+line-length = 140
+target-version = ['py38']
+skip-string-normalization = true
