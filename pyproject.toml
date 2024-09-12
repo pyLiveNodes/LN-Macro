@@ -1,5 +1,5 @@
 [project]
-name = "Livenodes-IO-Python"
+name = "LN-Macro"
 dynamic = ['version']
 description = "LiveNodes: node based live streaming sensor/data and visualization suite."
 authors = [
@@ -19,13 +19,12 @@ dependencies = [
 # FIX upstream and remove here
 
 [project.entry-points."livenodes.nodes"]
-macro = "livenodes_io_python.macro:Macro"
+macro = "ln_macro.macro:Macro"
 
 [project.optional-dependencies]
 dev = [
     "tox",
-    "pytest>=8.2.2",
-    "livenodes_io_python"
+    "pytest>=8.2.2"
 ]
 
 [build-system]

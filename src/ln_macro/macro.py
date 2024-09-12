@@ -1,111 +1,71 @@
-import asyncio
-import numpy as np
+from livenodes.node import Node
+from livenodes import REGISTRY
 
-from livenodes.producer_async import Producer_async
+from collections import namedtuple
+# from typing import NamedTuple
 
-from livenodes_common_ports.ports import Port_ListUnique_Str, Ports_empty, Port_Timeseries
-from typing import NamedTuple
+# class Ports_BTS_data(NamedTuple):
+#     data: Port_BTS_Number = Port_BTS_Number("Data")
 
+# collections.namedtuple('Employee', ['name', 'id'])
 
-class Ports_out(NamedTuple):
-    ts: Port_Timeseries = Port_Timeseries("TimeSeries")
-    channels: Port_ListUnique_Str = Port_ListUnique_Str("Channel Names")
+from livenodes_common_ports.ports import Ports_empty
 
-
-class In_function(Producer_async):
-    """Inputs data generated from a NumPy function into the LiveNodes graph.
-
-    Generates an infinite data stream [0, 1, 2, ...] and applies the
-    given NumPy function to it.
-
-    The output batch size is set via the `emit_at_once` attribute. The time
-    interval between process invocations depends on both `emit_at_once` and the
-    `sample rate` meta attribute.
-
-    If multiple output channels are defined, all of them will contain identical
-    data.
-
-    Attributes
-    ----------
-    function : str
-        Name of a NumPy function such as "sin". Defaults to a basic linear
-        function if invalid.
-    meta : dict
-        Dict of meta parameters.
-
-        * 'sample_rate' : int
-            Sample rate to simulate.
-        * 'channel_names' : list of unique str, optional
-            List of channel names for `channels` port. Number of items also
-            sets number of channels.
-    emit_at_once : int
-        Batch size, i.e. number of samples sent per process invocation.
-
-    Ports Out
-    ---------
-    ts : Port_TimeSeries
-        Batch of output samples.
-    channels : Port_ListUnique_Str
-        List of channel names. Can be overwritten using the `meta` attribute.
-    """
-
-    ports_in = Ports_empty()
-    ports_out = Ports_out()
-
+class Macro(Node, abstract_class=True):
     category = "Data Source"
     description = ""
 
     example_init = {
-        "function": "sin",
-        "meta": {"sample_rate": 100, "channels": ["Function"]},
-        "emit_at_once": 1,
-        "name": "Function Input",
+        "path": "path/to/macro.yml",
+        "name": "Macro",
     }
 
-    # TODO: consider using a file for meta data instead of dictionary...
-    def __init__(self, meta, function="sin", emit_at_once=1, name="Function Input", **kwargs):
+    def __init__(self, path, name=None, **kwargs):
+        print('call to __init__')
+        if name is None:
+            name = f'Macro: {path.split('/')[-1].split('.')[-2]}'
         super().__init__(name, **kwargs)
 
-        self.meta = meta
-        self.function = function
-        self.emit_at_once = emit_at_once
-
-        self.sample_rate = meta.get('sample_rate')
-        self.channels = meta.get('channels')
+        self.path = path
+        self.pl = Node.load(path)
 
     def _settings(self):
-        return {"emit_at_once": self.emit_at_once, "function": self.function, "meta": self.meta}
+        # TODO: figure out if this is deserialized correctly or throws an error
+        return {"path": self.path, "name": self.name}
 
-    async def _async_run(self):
-        self.ret_accu(self.channels, port=self.ports_out.channels)
+    def process(self, *args, **kwargs):
+        # big todo here
+        # there should probably not be a process method here, but rather we should rewrite the on_connect (or similar, need to look that up) to connect to the subnodes instead
+        return self.pl.process(data, **kwargs)
 
-        ctr = 0
-        n_channels = len(self.channels)
+    def __new__(cls, path, name=None, **kwargs):
+        print('call to macro new')
 
-        time_to_sleep = 1.0 / self.sample_rate * self.emit_at_once
-        # last_emit_time = time.time()
+        pl = Node.load(path)
+        nodes = [n for n in pl.sort_discovered_nodes(pl.discover_graph(pl))]
+        
+        # the name of a node is always unique, so we can use it as a key
+        in_fields_names, in_field_defaults = zip(*[(f"{n.name}_{port_name}", port_value) for n in nodes for (port_name, port_value) in n.ports_in._asdict().items()])
+        ports_in = namedtuple('Macro_Ports_In', in_fields_names, defaults=in_field_defaults)
+        
+        # the name of a node is always unique, so we can use it as a key
+        out_fields_names, out_field_defaults = zip(*[(f"{n.name}_{port_name}", port_value) for n in nodes for (port_name, port_value) in n.ports_out._asdict().items()])
+        ports_out = namedtuple('Macro_Ports_Out', out_fields_names, defaults=out_field_defaults)
 
-        def linear(x):
-            return x / 1000
+        # new_cls = type("Macro", (cls,), dict(ports_in=Ports_empty(), ports_out=Ports_empty()))
+        # # REGISTRY.node.register(name, new_cls)
+        # return new_cls(name=name, path=path, **kwargs)
+        new_cls = super(Macro, cls).__new__(cls)
+        new_cls.ports_in = Ports_empty()
+        new_cls.ports_out = Ports_empty()
+        # new_cls.path = path
 
-        try:
-            fn = getattr(np, self.function)
-        except:
-            self.error(f'Could not find {self.function}. Defaulting to linear.')
-            fn = linear
+        return new_cls
 
-        while True:
-            samples = np.linspace(ctr, ctr + self.emit_at_once - 1, self.emit_at_once)
-            res = fn(samples)
-            res = np.array(np.array([res] * n_channels).T)
-            self.ret_accu(res, port=self.ports_out.ts)
+    def process(self, data, **kwargs):
+        return super().process(data, **kwargs)
 
-            ctr += self.emit_at_once
 
-            # process_time = time.time() - last_emit_time
-            # if time_to_sleep > process_time:
-            #     await asyncio.sleep(time_to_sleep - process_time)
-            await asyncio.sleep(time_to_sleep)
-
-            yield (self.ret_accumulated())
-            # last_emit_time = time.time()
+if __name__ == '__main__':
+    m = Macro('test.yml')
+    print(m.ports_in)

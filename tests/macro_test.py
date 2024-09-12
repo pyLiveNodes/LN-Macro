@@ -4,14 +4,18 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 from livenodes import Graph
-
+from livenodes_io_python.in_python import In_python
+from livenodes_io_python.out_python import Out_python
 from ln_macro.macro import Macro
+
+# from ln_macro.macro import Macro
 
 def run_single_test(data):
     in_python = In_python(data=data)
-
+    macro = Macro('test.yml')
+    macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.floor.data_np)
     out_python = Out_python()
-    out_python.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=out_python.ports_in.any)
+    out_python.add_input(macro, emit_port=macro.ports_out.floor.data_np, recv_port=out_python.ports_in.any)
 
     g = Graph(start_node=in_python)
     g.start_all()
@@ -20,7 +24,7 @@ def run_single_test(data):
 
     actual = np.array(out_python.get_state())
 
-    np.testing.assert_equal(data, actual)
+    np.testing.assert_equal(np.floor(data), actual)
 
 
 class TestProcessing:
