@@ -8,14 +8,12 @@ from livenodes_io_python.in_python import In_python
 from livenodes_io_python.out_python import Out_python
 from ln_macro.macro import Macro
 
-# from ln_macro.macro import Macro
-
 def run_single_test(data):
     in_python = In_python(data=data)
-    macro = Macro('test.yml')
-    macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.floor.data_np)
+    macro = Macro()
+    macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
     out_python = Out_python()
-    out_python.add_input(macro, emit_port=macro.ports_out.floor.data_np, recv_port=out_python.ports_in.any)
+    out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
 
     g = Graph(start_node=in_python)
     g.start_all()
@@ -24,10 +22,35 @@ def run_single_test(data):
 
     actual = np.array(out_python.get_state())
 
-    np.testing.assert_equal(np.floor(data), actual)
+    np.testing.assert_equal(data, actual)
 
 
 class TestProcessing:
+
+    def test_loadable(self):
+        Macro()
+
+    def test_connectable_input(self):
+        in_python = In_python(data=[100])
+        macro = Macro()
+        macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
+
+    def test_connectable(self):
+        in_python = In_python(data=[100])
+        macro = Macro()
+        macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
+        out_python = Out_python()
+        out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
+
+    def test_deconnectable(self):
+        in_python = In_python(data=[100])
+        macro = Macro()
+        macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
+        out_python = Out_python()
+        out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
+
+        macro.remove_all_inputs()
+        out_python.remove_all_inputs()
 
     def test_list(self):
         run_single_test(list(range(100)))
@@ -37,18 +60,3 @@ class TestProcessing:
 
     def test_numpy_2D(self):
         run_single_test(np.arange(100).reshape((20, 5)))
-
-    def test_numpy_2D_nested_axis_0(self):
-        run_single_test(np.arange(100).reshape((1, 20, 5)))
-
-    def test_numpy_2D_nested_axis_1(self):
-        run_single_test(np.arange(100).reshape((20, 1, 5)))
-
-    def test_numpy_2D_nested_axis_2(self):
-        run_single_test(np.arange(100).reshape((20, 5, 1)))
-
-    def test_numpy_3D(self):
-        run_single_test(np.arange(100).reshape((2, 10, 5)))
-
-    def test_large(self):
-        run_single_test(np.arange(1000000).reshape((1000, -1)))

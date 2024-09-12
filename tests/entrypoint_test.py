@@ -18,17 +18,17 @@ class TestProcessing:
         assert len(discovered_modules) > 0
 
     def test_all_declared(self, discovered_modules):
-        livenodes_entrypoints = [x.name for x in entry_points()['livenodes.nodes']]
+        livenodes_entrypoints = [x.name for x in entry_points(group='livenodes.nodes')]
 
         print(set(discovered_modules).difference(set(livenodes_entrypoints)))
         assert set(discovered_modules) <= set(livenodes_entrypoints)
 
     def test_loads_class(self):
-        macro = [x.load() for x in entry_points()['livenodes.nodes'] if x.name == 'macro'][0]
+        macro = [x.load() for x in entry_points(group='livenodes.nodes') if x.name == 'macro'][0]
         from ln_macro.macro import Macro
 
         assert macro == Macro
 
     def test_all_loadable(self):
-        for x in entry_points()['livenodes.nodes']:
+        for x in entry_points(group='livenodes.nodes'):
             x.load()

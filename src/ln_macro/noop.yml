@@ -1,0 +1,5 @@
+Inputs: []
+Nodes:
+  Noop [Noop]:
+    compute_on: ''
+    name: Noop

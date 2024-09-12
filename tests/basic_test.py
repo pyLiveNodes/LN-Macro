@@ -6,7 +6,7 @@ DEPRECATION_MODULES = []
 class TestProcessing:
 
     def test_all_instantiable(self):
-        for x in entry_points()['livenodes.nodes']:
+        for x in entry_points(group='livenodes.nodes'):
             if x.name in DEPRECATION_MODULES:
                 continue
             print(x)
@@ -19,7 +19,7 @@ class TestProcessing:
         # Note: these are very crude tests!
         # Each node should also be tested separately.
 
-        for x in entry_points()['livenodes.nodes']:
+        for x in entry_points(group='livenodes.nodes'):
             if x.name in DEPRECATION_MODULES:
                 continue
             print(x)
@@ -49,7 +49,7 @@ class TestProcessing:
         # Note: these are very crude tests!
         # Each node should also be tested separately.
 
-        for x in entry_points()['livenodes.nodes']:
+        for x in entry_points(group='livenodes.nodes'):
             if x.name in DEPRECATION_MODULES:
                 continue
             print(x)
