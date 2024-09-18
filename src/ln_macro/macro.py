@@ -42,9 +42,12 @@ class Macro(Node, abstract_class=True):
     def all_ports_sub_nodes(nodes, ret_in = True):
         return [(n, port_name, port_value) for n in nodes for (port_name, port_value) in (n.ports_in if ret_in else n.ports_out)._asdict().items()]
 
-    def __new__(cls, path=f"{file_path}/noop.yml", name=None, **kwargs):
+    def __new__(cls, path=f"{file_path}/noop.yml", name=None, compute_on="", **kwargs):
         pl = Node.load(path)
         nodes = pl.sort_discovered_nodes(pl.discover_graph(pl))
+
+        for n in nodes:
+            n.compute_on = compute_on
 
         in_ports = cls.all_ports_sub_nodes(nodes, ret_in=True)
         out_ports = cls.all_ports_sub_nodes(nodes, ret_in=True)

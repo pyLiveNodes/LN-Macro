@@ -1,4 +1,5 @@
 from importlib.metadata import entry_points
+import asyncio
 
 DEPRECATION_MODULES = []
 
@@ -27,6 +28,10 @@ class TestProcessing:
             node_class = x.load()
             # implicit test if class is instantiable with default values
             example_node = node_class(**node_class.example_init)
+            
+            # required by ready, typically done by graph, but since that's not available here, we do it manually
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             # not strictly correct, but needed before we cann call _should_process, due to pre-computations
             example_node.lock()
             example_node.ready({}, {})
@@ -57,6 +62,13 @@ class TestProcessing:
             node_class = x.load()
             # implicit test if class is instantiable with default values
             example_node = node_class(**node_class.example_init)
+            
+            # required by ready, typically done by graph, but since that's not available here, we do it manually
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            # not strictly correct, but needed before we cann call _should_process, due to pre-computations
+            example_node.lock()
+            example_node.ready({}, {})
 
             # heuristic test if should process works with some of the example values provided in the port classes
             # if should process works and returns true, test if process works as well

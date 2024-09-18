@@ -8,7 +8,7 @@ import pytest
 @pytest.fixture
 def discovered_modules():
     exclude = ['__init__', 'utils', 'ports']
-    modules = glob.glob(join(dirname(__file__), '../src/livenodes_macro/', "*.py"))
+    modules = glob.glob(join(dirname(__file__), '../src/ln_macro/', "*.py"))
     names = [basename(f)[:-3] for f in modules if isfile(f)]
     return [f for f in names if not f in exclude]
 

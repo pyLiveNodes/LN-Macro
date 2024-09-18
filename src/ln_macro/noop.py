@@ -1,5 +1,5 @@
 from livenodes.node import Node
-from livenodes_common_ports import Ports_any
+from livenodes_common_ports.ports import Ports_any
 
 class Noop(Node):
     ports_in = Ports_any()
@@ -16,4 +16,4 @@ class Noop(Node):
         super().__init__(name, **kwargs)
 
     def process(self, any, **kwargs):
-        return any
+        return self.ret(any=any)
