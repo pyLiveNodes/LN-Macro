@@ -1,7 +1,19 @@
 from importlib.metadata import entry_points
 import asyncio
+import pytest 
 
 DEPRECATION_MODULES = []
+
+@pytest.fixture()
+def async_loop_provider():
+    # based on this answer: https://stackoverflow.com/a/39401087
+    print("setup")
+    # required by ready, typically done by graph, but since that's not available here, we do it manually
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    print("teardown")
+    loop.close()
 
 
 class TestProcessing:
@@ -16,7 +28,7 @@ class TestProcessing:
             # implicit test if class is instantiable with default values
             node_class(**node_class.example_init)
 
-    def test_all_should_processable(self):
+    def test_all_should_processable(self, async_loop_provider):
         # Note: these are very crude tests!
         # Each node should also be tested separately.
 
@@ -29,9 +41,6 @@ class TestProcessing:
             # implicit test if class is instantiable with default values
             example_node = node_class(**node_class.example_init)
             
-            # required by ready, typically done by graph, but since that's not available here, we do it manually
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             # not strictly correct, but needed before we cann call _should_process, due to pre-computations
             example_node.lock()
             example_node.ready({}, {})
@@ -50,7 +59,7 @@ class TestProcessing:
 
         # essentially: the types are not fully fledged out yet.. :/
 
-    def test_all_processable(self):
+    def test_all_processable(self, async_loop_provider):
         # Note: these are very crude tests!
         # Each node should also be tested separately.
 
@@ -63,9 +72,6 @@ class TestProcessing:
             # implicit test if class is instantiable with default values
             example_node = node_class(**node_class.example_init)
             
-            # required by ready, typically done by graph, but since that's not available here, we do it manually
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             # not strictly correct, but needed before we cann call _should_process, due to pre-computations
             example_node.lock()
             example_node.ready({}, {})

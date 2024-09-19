@@ -10,7 +10,7 @@ from ln_macro import Macro, Noop
 
 def run_single_test(data):
     in_python = In_python(data=data)
-    macro = Macro()
+    macro = Macro(path=Macro.example_init["path"])
     macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
     out_python = Out_python()
     out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
@@ -41,23 +41,23 @@ class TestProcessing:
         np.testing.assert_equal(d, out_python.get_state())
 
     def test_loadable(self):
-        Macro()
+        Macro(path=Macro.example_init["path"])
 
     def test_connectable_input(self):
         in_python = In_python(data=[100])
-        macro = Macro()
+        macro = Macro(path=Macro.example_init["path"])
         macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
 
     def test_connectable(self):
         in_python = In_python(data=[100])
-        macro = Macro()
+        macro = Macro(path=Macro.example_init["path"])
         macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
         out_python = Out_python()
         out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
 
     def test_deconnectable(self):
         in_python = In_python(data=[100])
-        macro = Macro()
+        macro = Macro(path=Macro.example_init["path"])
         macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
         out_python = Out_python()
         out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
