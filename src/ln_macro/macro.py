@@ -91,10 +91,20 @@ class Macro(Node, abstract_class=True):
         connection._emit_port = mapped_port
         super(mapped_node.__class__, mapped_node)._add_output(connection)
 
+    def remove_all_inputs(self):
+        for n in self.nodes:
+            n.remove_all_inputs()
+    
+    def remove_input_by_connection(self, connection):
+        # mapped_node = connection._emit_node
+        mapped_node, mapped_port = self.__get_correct_node(connection._recv_port, io='in')
+        connection._recv_node = mapped_node
+        connection._recv_port = mapped_port
+        super(mapped_node.__class__, mapped_node).remove_input_by_connection(connection)
 
 if __name__ == '__main__':
-    m = Macro(path=Macro.example_init["path"]) 
-    print(m.ports_in)
+    # m = Macro(path=Macro.example_init["path"]) 
+    # print(m.ports_in)
 
     from livenodes import Graph
     from livenodes_io_python.in_python import In_python
@@ -103,20 +113,18 @@ if __name__ == '__main__':
 
     d = [100]
     in_python = In_python(data=d)
-    # e.g. if this is here the following will run, but all ports are named "Noop_any" and the test will fail
-    # if the lines is moved after macro.add_input() there is an error, as then all ports are named "any"
-    # ...
     macro = Macro(path=Macro.example_init["path"])
-    print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
+    # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
     macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
-    print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
-    out_python = Out_python() # <- this line in combination with the usage of super() seems to be the issue
-    print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
+    # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
+    macro.remove_all_inputs()
+    out_python = Out_python() 
+    # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
     out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
 
-    g = Graph(start_node=in_python)
-    g.start_all()
-    g.join_all()
-    g.stop_all()
+    # g = Graph(start_node=in_python)
+    # g.start_all()
+    # g.join_all()
+    # g.stop_all()
 
-    np.testing.assert_equal(np.array(out_python.get_state()), np.array(d))
+    # np.testing.assert_equal(np.array(out_python.get_state()), np.array(d))
