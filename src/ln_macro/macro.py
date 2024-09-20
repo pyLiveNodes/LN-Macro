@@ -13,7 +13,7 @@ class Macro(Node, abstract_class=True):
 
     def __init__(self, path, name=None, **kwargs):
         if name is None:
-            name = f'Macro: {path.split('/')[-1].split('.')[-2]}'
+            name = f"Macro: {path.split('/')[-1].split('.')[-2]}"
         super().__init__(name, **kwargs)
 
         self.path = path
