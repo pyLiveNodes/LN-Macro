@@ -150,9 +150,12 @@ class Macro(Node, abstract_class=True):
         super(mapped_node.__class__, mapped_node)._add_output(connection)
 
     def remove_all_inputs(self):
+        # TODO: this is currently untested
         for n in self.nodes:
-            # TODO: this is actually wrong, as all subgraphs would unform...
-            n.remove_all_inputs()
+            for con in n.input_connections:
+                # only remove connections that are from outside the sub-graph to inside it
+                if self.node_macro_id_suffix not in str(con._recv_node):
+                    super(n.__class__, n).remove_input_by_connection(con)
     
     def remove_input_by_connection(self, connection):
         # mapped_node = connection._emit_node
