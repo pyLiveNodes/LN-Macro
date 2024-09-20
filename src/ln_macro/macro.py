@@ -154,7 +154,7 @@ class Macro(Node, abstract_class=True):
         for n in self.nodes:
             for con in n.input_connections:
                 # only remove connections that are from outside the sub-graph to inside it
-                if self.node_macro_id_suffix not in str(con._recv_node):
+                if self.node_macro_id_suffix not in str(con._emit_node):
                     super(n.__class__, n).remove_input_by_connection(con)
     
     def remove_input_by_connection(self, connection):
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
     macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
     # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
-    # macro.remove_all_inputs()
+    macro.remove_all_inputs()
     dct = in_python.to_compact_dict(graph=True)
     out_python = Out_python() 
     # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)

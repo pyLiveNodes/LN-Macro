@@ -60,18 +60,18 @@ class TestProcessing:
         macro = Macro(path=Macro.example_init["path"])
         macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
         
-        assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anythin'
+        assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anything'
         assert in_python.provides_input_to(macro.nodes[0]), 'Input should be connected to the only node in macro'
 
     def test_deconnectable(self):
         in_python, macro, out_python = build_pipeline()
-        assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anythin'
+        assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anything'
         assert in_python.provides_input_to(macro.nodes[0]), 'Input should be connected to the only node in macro'
 
         macro.remove_all_inputs()
         out_python.remove_all_inputs()
-        assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anythin'
-        assert not in_python.provides_input_to(macro.nodes[0]), 'Input should not bb connected to the only node in macro anymore since we removed that connection'
+        assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anything'
+        assert not in_python.provides_input_to(macro.nodes[0]), 'Input should not be connected to the only node in macro anymore since we removed that connection'
 
     def test_list(self):
         run_single_test(list(range(100)))
