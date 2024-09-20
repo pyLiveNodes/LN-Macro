@@ -83,16 +83,14 @@ class TestProcessing:
         run_single_test(np.arange(100).reshape((20, 5)))
 
     def test_serialize(self):
-        # Load the expected YAML content
-        with open(Macro.example_init['path'], 'r') as file:
-            expected_yaml = file.read()
+        in_python = In_python(data=[100])
+        macro = Macro(path=Macro.example_init["path"])
+        macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
+        serialized_output = yaml.dump(in_python.to_compact_dict(graph=True), allow_unicode=True)
 
-        # Load the node and serialize it
-        node = Node.load(Macro.example_init['path'])
-        serialized_output = yaml.dump(node.to_compact_dict(), allow_unicode=True)
-
-        assert serialized_output == expected_yaml, 'Serialized should be the same as the loaded YAML'
-        raise NotImplementedError('TODO: test if the serialized output can be loaded again')
+        print(serialized_output)
+        assert '[Macro]' in serialized_output
+        assert '[Noop]' not in serialized_output
 
     # TODO: i think serilization should work as follows: add an attribute to each of the inserted notes indicating which macro node they belong to
     # then when serializing replace all those nodes and connections back to the macro
