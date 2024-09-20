@@ -6,33 +6,38 @@ stages:
 
 format:
   stage: clean
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.9-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   before_script:
     - python -m pip install yapf toml
   script:
     - yapf -ri ./src ./tests
 
-
 test:
   stage: test
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.8
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12
+  cache:
+    key: tox-test
+    paths:
+      - .tox
   script:
-    - tox -e py38
+    - tox -e py312
   before_script:
+    - pip install -U pip wheel setuptools cython
     - pip install -r requirements_setup.txt
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
   artifacts:
     when: always
     reports:
       junit: dist/tests/report.xml
-      # current gitlab is: 14.0.12, this is available starting in 14.10.x
-      # coverage_report: 
-      #   coverage_format: cobertura
-      #   path: dist/tests/coverage.xml
+      coverage_report: 
+        coverage_format: cobertura
+        path: dist/tests/coverage.xml
 
 
 pages:
   stage: deploy
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.9-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   cache:
     key: tox-docs
     paths:
@@ -46,16 +51,16 @@ pages:
   artifacts:
     paths:
     - public
-  rules:
-    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+  only: 
+    - tags
 
 
 build-package:
   stage: deploy
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.8
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12
   script:
     - pip install twine build
     - python3 -m build --wheel
     - TWINE_PASSWORD=${TWINE_PASSWORD} TWINE_USERNAME=${TWINE_USERNAME} python3 -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
-  only:
+  only: 
     - tags
