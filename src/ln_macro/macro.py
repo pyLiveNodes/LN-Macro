@@ -1,4 +1,4 @@
-from livenodes import Node, Ports_collection
+from livenodes import Node, Ports_collection, Connection
 import pathlib
 file_path = pathlib.Path(__file__).parent.resolve()
 
@@ -43,6 +43,7 @@ class Macro(Node, abstract_class=True):
         in_field_names, in_field_defaults = [], []
         out_field_names, out_field_defaults = [], []
         own_in_port_to_ref, own_out_port_to_ref = {}, {}
+        own_in_port_reverse = {}
 
         # Populate the lists using classic for loops
         for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=True):
@@ -50,6 +51,7 @@ class Macro(Node, abstract_class=True):
             in_field_names.append(cls._encode_node_port(n, port_name))
             in_field_defaults.append(port_value)
             own_in_port_to_ref[cls._encode_node_port(n, port_name)] = (n, port_name, port_value)
+            own_in_port_reverse[f"{str(n)}.{port_name}"] = cls._encode_node_port(n, port_name)
             
         for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=True):
             # port_value.label = f"{n.name}: {port_value.label}"
@@ -76,16 +78,21 @@ class Macro(Node, abstract_class=True):
         #   however, this is not the case for inputs, as they use inputs.extend() and thus we should only return those once
         # (2) The idea for outputs is to overwrite the serialize_compact method of their connection classes to return the macro instead of the sub-graph nodes
         #   This happens by overwriting the add_output method of the sub-graph nodes
-        def compact_settings_no_inputs(self):
-            config = macro.get_settings().get('settings', {})
-            return config, [], str(macro)
-
         def compact_settings(self):
-            config = macro.get_settings().get('settings', {})
-            inputs = [
-                inp.serialize_compact() for inp in macro.input_connections
-            ]
-            return config, inputs, str(macro)
+            nonlocal new_cls, own_in_port_reverse
+            config = new_cls.get_settings().get('settings', {})
+            inputs = []
+            for inp in self.input_connections:
+                # only keep those connections that are from outside the sub-graph to inside it
+                if new_cls.node_macro_id_suffix not in str(inp._emit_node):
+                    # copy connection, so that the original is not changed (not sure if necessary, but feels right)
+                    inp = Connection(inp._emit_node, inp._recv_node, inp._emit_port, inp._recv_port)
+                    # change the recv_node to the macro node
+                    tmp_key = f"{str(inp._recv_node)}.{inp._recv_port.key}".replace(new_cls.node_macro_id_suffix, '')
+                    inp._recv_port = getattr(new_cls.ports_in, own_in_port_reverse[tmp_key])
+                    inp._recv_node = new_cls
+                    inputs.append(inp.serialize_compact())
+            return config, inputs, str(new_cls)
 
         for n in nodes:
             # set a unique name for each node, so that it is not changed during connection into any existing graph
@@ -94,10 +101,7 @@ class Macro(Node, abstract_class=True):
             #    TODO: double check if this results in any issues down the road
             n.name = f"{n.name}{new_cls.node_macro_id_suffix}"
             # following: https://stackoverflow.com/a/28127947
-            n.compact_settings = compact_settings_no_inputs.__get__(n, n.__class__)
-        # As no connections within the subgraph are changed, all subgraph nodes that are loaded will also be present in the serialized graph
-        # Thus we can just select the first one to also return the inputs of our macro node
-        nodes[0].compact_settings = compact_settings.__get__(n, n.__class__)
+            n.compact_settings = compact_settings.__get__(n, n.__class__)
 
         return new_cls
     
@@ -173,10 +177,10 @@ if __name__ == '__main__':
     macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
     # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
     # macro.remove_all_inputs()
+    dct = in_python.to_compact_dict(graph=True)
     out_python = Out_python() 
     # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
     out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
-
     # g = Graph(start_node=in_python)
     # g.start_all()
     # g.join_all()

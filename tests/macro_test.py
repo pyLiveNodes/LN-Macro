@@ -86,14 +86,39 @@ class TestProcessing:
         in_python = In_python(data=[100])
         macro = Macro(path=Macro.example_init["path"])
         macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
-        serialized_output = yaml.dump(in_python.to_compact_dict(graph=True), allow_unicode=True)
+        dct = in_python.to_compact_dict(graph=True)
+        print(dct)
+        assert list(sorted(dct['Nodes'].keys())) == ['Macro: noop [Macro]', 'Python Input [In_python]']
+        assert dct['Inputs'][0] == 'Python Input [In_python].any -> Macro: noop [Macro].Noop_any'
 
-        print(serialized_output)
+        serialized_output = yaml.dump(dct, allow_unicode=True)
         assert '[Macro]' in serialized_output
-        assert '[Noop]' in serialized_output
-
-    # def test_deserialize(self):
+        assert '[Noop]' not in serialized_output
         
+
+    def test_deserialize(self):
+        data = [100]
+        # double check the graph is working in the first place
+        in_python, macro, out_python = build_pipeline(data)
+        g = Graph(start_node=in_python)
+        g.start_all()
+        g.join_all()
+        g.stop_all()
+        np.testing.assert_equal(np.array(data), np.array(out_python.get_state()))
+
+        # now serialize and deserialize and check if still working
+        s = in_python.from_compact_dict(in_python.to_compact_dict(graph=True))
+        s.data = data
+        g = Graph(start_node=s)
+        g.start_all()
+        g.join_all()
+        g.stop_all()
+        assert isinstance(s, In_python)
+        o = s.output_connections[0]._recv_node.output_connections[0]._recv_node
+        assert isinstance(o, Out_python)
+        np.testing.assert_equal(np.array(data), np.array(o.get_state()))
+
+
 
     def test_compute_on(self):
         macro = Macro(path=Macro.example_init["path"], compute_on="1:2")
