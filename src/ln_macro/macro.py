@@ -78,14 +78,14 @@ class Macro(Node, abstract_class=True):
         #   This happens by overwriting the add_output method of the sub-graph nodes
         def compact_settings_no_inputs(self):
             config = macro.get_settings().get('settings', {})
-            return config, []
+            return config, [], str(macro)
 
         def compact_settings(self):
             config = macro.get_settings().get('settings', {})
             inputs = [
                 inp.serialize_compact() for inp in macro.input_connections
             ]
-            return config, inputs
+            return config, inputs, str(macro)
 
         for n in nodes:
             # set a unique name for each node, so that it is not changed during connection into any existing graph
@@ -93,6 +93,7 @@ class Macro(Node, abstract_class=True):
             #    only for keeping the node name unique within the subgraph and the serialized graph
             #    TODO: double check if this results in any issues down the road
             n.name = f"{n.name}{new_cls.node_macro_id_suffix}"
+            # following: https://stackoverflow.com/a/28127947
             n.compact_settings = compact_settings_no_inputs.__get__(n, n.__class__)
         # As no connections within the subgraph are changed, all subgraph nodes that are loaded will also be present in the serialized graph
         # Thus we can just select the first one to also return the inputs of our macro node

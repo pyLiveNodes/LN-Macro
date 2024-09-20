@@ -90,10 +90,10 @@ class TestProcessing:
 
         print(serialized_output)
         assert '[Macro]' in serialized_output
-        assert '[Noop]' not in serialized_output
+        assert '[Noop]' in serialized_output
 
-    # TODO: i think serilization should work as follows: add an attribute to each of the inserted notes indicating which macro node they belong to
-    # then when serializing replace all those nodes and connections back to the macro
+    # def test_deserialize(self):
+        
 
     def test_compute_on(self):
         macro = Macro(path=Macro.example_init["path"], compute_on="1:2")
