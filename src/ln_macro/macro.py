@@ -3,8 +3,8 @@ from ln_ports import Ports_empty
 import pathlib
 file_path = pathlib.Path(__file__).parent.resolve()
 
-class Macro(Node, abstract_class=True):
-    category = "Data Source"
+class MacroHelper(Node, abstract_class=True):
+    category = "Meta"
     description = ""
 
     ports_in = Ports_empty()
@@ -16,11 +16,16 @@ class Macro(Node, abstract_class=True):
     }
 
     def __init__(self, path, name=None, **kwargs):
-        if name is None:
-            name = f"Macro: {path.split('/')[-1].split('.')[-2]}"
+        name = self.name(name, path)
         super().__init__(name, **kwargs)
 
         self.path = path
+
+    @staticmethod
+    def name(name, path):
+        if name is not None:
+            return name
+        return f"Macro:{path.split('/')[-1].split('.')[-2]}"
 
     @staticmethod
     def all_ports_sub_nodes(nodes, ret_in = True):
@@ -33,81 +38,6 @@ class Macro(Node, abstract_class=True):
     @property
     def node_macro_id_suffix(self):
         return f"[[m:{id(self)}]]"
-
-    def __new__(cls, path=f"{file_path}/noop.yml", name=None, compute_on="", **kwargs):
-        pl = Node.load(path)
-        nodes = pl.sort_discovered_nodes(pl.discover_graph(pl))
-        
-        # Set the compute_on attribute for all nodes 
-        for n in nodes:
-            n.compute_on = compute_on
-
-        # --- Match Ports ----------------
-        # Initialize lists for field names and defaults
-        in_field_names, in_field_defaults = [], []
-        out_field_names, out_field_defaults = [], []
-        own_in_port_to_ref, own_out_port_to_ref = {}, {}
-        own_in_port_reverse = {}
-
-        # Populate the lists using classic for loops
-        for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=True):
-            # port_value.label = f"{n.name}: {port_value.label}"
-            in_field_names.append(cls._encode_node_port(n, port_name))
-            in_field_defaults.append(port_value)
-            own_in_port_to_ref[cls._encode_node_port(n, port_name)] = (n, port_name, port_value)
-            own_in_port_reverse[f"{str(n)}.{port_name}"] = cls._encode_node_port(n, port_name)
-            
-        for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=True):
-            # port_value.label = f"{n.name}: {port_value.label}"
-            out_field_names.append(cls._encode_node_port(n, port_name))
-            out_field_defaults.append(port_value)
-            own_out_port_to_ref[cls._encode_node_port(n, port_name)] = (n, port_name, port_value)
-
-
-        # --- Create new (sub) class ----------------
-        new_cls = super(Macro, cls).__new__(cls)
-        new_cls.ports_in = type('Macro_Ports_In', (Ports_collection,), dict(zip(in_field_names, in_field_defaults)))()
-        new_cls.ports_out = type('Macro_Ports_Out', (Ports_collection,), dict(zip(out_field_names, out_field_defaults)))()
-        new_cls.pl = pl
-        new_cls.nodes = nodes
-        new_cls.own_in_port_to_ref = own_in_port_to_ref
-        new_cls.own_out_port_to_ref = own_out_port_to_ref
-
-
-        # --- Patch Settings / Serialization ----------------
-        # There are two main thoughts: (1) how to patch inputs into the macro and (2) how to patch nodes the macro inputs to (ie macros output)
-        # (1) The idea for inputs is to replace the compact_settings method of each node with a method that just returns the macro nodes settings
-        #   because the to_compact_dict method used for serialization overwrites nodes with the same str(node) (which should not occur, as each name must be unique in the graph) we can use that
-        #   to just return the settings of the macro node over and over and not worrying about duplicates in the serialized output
-        #   however, this is not the case for inputs, as they use inputs.extend() and thus we should only return those once
-        # (2) The idea for outputs is to overwrite the serialize_compact method of their connection classes to return the macro instead of the sub-graph nodes
-        #   This happens by overwriting the add_output method of the sub-graph nodes
-        def compact_settings(self):
-            nonlocal new_cls, own_in_port_reverse
-            config = new_cls.get_settings().get('settings', {})
-            inputs = []
-            for inp in self.input_connections:
-                # only keep those connections that are from outside the sub-graph to inside it
-                if new_cls.node_macro_id_suffix not in str(inp._emit_node):
-                    # copy connection, so that the original is not changed (not sure if necessary, but feels right)
-                    inp = Connection(inp._emit_node, inp._recv_node, inp._emit_port, inp._recv_port)
-                    # change the recv_node to the macro node
-                    tmp_key = f"{str(inp._recv_node)}.{inp._recv_port.key}".replace(new_cls.node_macro_id_suffix, '')
-                    inp._recv_port = getattr(new_cls.ports_in, own_in_port_reverse[tmp_key])
-                    inp._recv_node = new_cls
-                    inputs.append(inp.serialize_compact())
-            return config, inputs, str(new_cls)
-
-        for n in nodes:
-            # set a unique name for each node, so that it is not changed during connection into any existing graph
-            # NOTE: we set this here as we don't want the suffix to bleed into the port names etc
-            #    only for keeping the node name unique within the subgraph and the serialized graph
-            #    TODO: double check if this results in any issues down the road
-            n.name = f"{n.name}{new_cls.node_macro_id_suffix}"
-            # following: https://stackoverflow.com/a/28127947
-            n.compact_settings = compact_settings.__get__(n, n.__class__)
-
-        return new_cls
     
     def _settings(self):
         return {"path": self.path, "name": self.name}
@@ -167,6 +97,85 @@ class Macro(Node, abstract_class=True):
         connection._recv_node = mapped_node
         connection._recv_port = mapped_port
         super(mapped_node.__class__, mapped_node).remove_input_by_connection(connection)
+
+
+class Macro(MacroHelper):
+    def __new__(cls, path=f"{file_path}/noop.yml", name=None, compute_on="", **kwargs):
+        pl = Node.load(path)
+        nodes = pl.sort_discovered_nodes(pl.discover_graph(pl))
+        
+        # Set the compute_on attribute for all nodes 
+        for n in nodes:
+            n.compute_on = compute_on
+
+        # --- Match Ports ----------------
+        # Initialize lists for field names and defaults
+        in_field_names, in_field_defaults = [], []
+        out_field_names, out_field_defaults = [], []
+        own_in_port_to_ref, own_out_port_to_ref = {}, {}
+        own_in_port_reverse = {}
+
+        # Populate the lists using classic for loops
+        for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=True):
+            # port_value.label = f"{n.name}: {port_value.label}"
+            in_field_names.append(cls._encode_node_port(n, port_name))
+            in_field_defaults.append(port_value)
+            own_in_port_to_ref[cls._encode_node_port(n, port_name)] = (n, port_name, port_value)
+            own_in_port_reverse[f"{str(n)}.{port_name}"] = cls._encode_node_port(n, port_name)
+            
+        for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=True):
+            # port_value.label = f"{n.name}: {port_value.label}"
+            out_field_names.append(cls._encode_node_port(n, port_name))
+            out_field_defaults.append(port_value)
+            own_out_port_to_ref[cls._encode_node_port(n, port_name)] = (n, port_name, port_value)
+
+
+        # --- Create new (sub) class ----------------
+        # new_cls = super(Macro, cls).__new__(cls)
+        cls_name = f"Macro:{path.split('/')[-1].split('.')[-2]}"
+        new_obj = type(cls_name, (MacroHelper, ), {})(path=path, name=name, compute_on=compute_on, **kwargs)
+        new_obj.ports_in = type('Macro_Ports_In', (Ports_collection,), dict(zip(in_field_names, in_field_defaults)))()
+        new_obj.ports_out = type('Macro_Ports_Out', (Ports_collection,), dict(zip(out_field_names, out_field_defaults)))()
+        new_obj.pl = pl
+        new_obj.nodes = nodes
+        new_obj.own_in_port_to_ref = own_in_port_to_ref
+        new_obj.own_out_port_to_ref = own_out_port_to_ref
+
+
+        # --- Patch Settings / Serialization ----------------
+        # There are two main thoughts: (1) how to patch inputs into the macro and (2) how to patch nodes the macro inputs to (ie macros output)
+        # (1) The idea for inputs is to replace the compact_settings method of each node with a method that just returns the macro nodes settings
+        #   because the to_compact_dict method used for serialization overwrites nodes with the same str(node) (which should not occur, as each name must be unique in the graph) we can use that
+        #   to just return the settings of the macro node over and over and not worrying about duplicates in the serialized output
+        #   however, this is not the case for inputs, as they use inputs.extend() and thus we should only return those once
+        # (2) The idea for outputs is to overwrite the serialize_compact method of their connection classes to return the macro instead of the sub-graph nodes
+        #   This happens by overwriting the add_output method of the sub-graph nodes
+        def compact_settings(self):
+            nonlocal new_obj, own_in_port_reverse
+            config = new_obj.get_settings().get('settings', {})
+            inputs = []
+            for inp in self.input_connections:
+                # only keep those connections that are from outside the sub-graph to inside it
+                if new_obj.node_macro_id_suffix not in str(inp._emit_node):
+                    # copy connection, so that the original is not changed (not sure if necessary, but feels right)
+                    inp = Connection(inp._emit_node, inp._recv_node, inp._emit_port, inp._recv_port)
+                    # change the recv_node to the macro node
+                    tmp_key = f"{str(inp._recv_node)}.{inp._recv_port.key}".replace(new_obj.node_macro_id_suffix, '')
+                    inp._recv_port = getattr(new_obj.ports_in, own_in_port_reverse[tmp_key])
+                    inp._recv_node = new_obj
+                    inputs.append(inp.serialize_compact())
+            return config, inputs, str(new_obj)
+
+        for n in nodes:
+            # set a unique name for each node, so that it is not changed during connection into any existing graph
+            # NOTE: we set this here as we don't want the suffix to bleed into the port names etc
+            #    only for keeping the node name unique within the subgraph and the serialized graph
+            #    TODO: double check if this results in any issues down the road
+            n.name = f"{n.name}{new_obj.node_macro_id_suffix}"
+            # following: https://stackoverflow.com/a/28127947
+            n.compact_settings = compact_settings.__get__(n, n.__class__)
+
+        return new_obj
 
 if __name__ == '__main__':
     # m = Macro(path=Macro.example_init["path"]) 
