@@ -173,8 +173,8 @@ if __name__ == '__main__':
     # print(m.ports_in)
 
     from livenodes import Graph
-    from livenodes_io_python.in_python import In_python
-    from livenodes_io_python.out_python import Out_python
+    from ln_io_python.in_python import In_python
+    from ln_io_python.out_python import Out_python
     import numpy as np
 
     d = [100]

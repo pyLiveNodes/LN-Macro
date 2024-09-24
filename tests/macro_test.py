@@ -4,8 +4,8 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 from livenodes import Graph, Node
-from livenodes_io_python.in_python import In_python
-from livenodes_io_python.out_python import Out_python
+from ln_io_python.in_python import In_python
+from ln_io_python.out_python import Out_python
 from ln_macro import Macro, Noop
 import yaml
 
