@@ -6,7 +6,7 @@ logging.basicConfig(level=logging.DEBUG)
 from livenodes import Graph, Node
 from ln_io_python.in_python import In_python
 from ln_io_python.out_python import Out_python
-from ln_macro import Macro, Noop
+from ln_macro import Macro, Noop, MacroHelper
 import yaml
 
 def build_pipeline(data=[100]):
@@ -48,7 +48,7 @@ class TestProcessing:
 
     def test_loadable(self):
         a = Macro(path=Macro.example_init["path"])
-        assert isinstance(a, Macro)
+        assert isinstance(a, MacroHelper)
 
     def test_port_context(self):
         a = Macro(path=Macro.example_init["path"])
@@ -83,13 +83,12 @@ class TestProcessing:
         run_single_test(np.arange(100).reshape((20, 5)))
 
     def test_serialize(self):
-        in_python = In_python(data=[100])
-        macro = Macro(path=Macro.example_init["path"])
-        macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
+        in_python, macro, out_python = build_pipeline()
         dct = in_python.to_compact_dict(graph=True)
         print(dct)
-        assert list(sorted(dct['Nodes'].keys())) == ['Macro: noop [Macro]', 'Python Input [In_python]']
-        assert dct['Inputs'][0] == 'Python Input [In_python].any -> Macro: noop [Macro].Noop_any'
+        assert list(sorted(dct['Nodes'].keys())) == ['Macro:noop [Macro]', 'Python Input [In_python]', 'Python Output [Out_python]']
+        assert dct['Inputs'][1] == 'Python Input [In_python].any -> Macro:noop [Macro].Noop_any'
+        assert dct['Inputs'][0] == 'Macro:noop [Macro].Noop_any -> Python Output [Out_python].any'
 
         serialized_output = yaml.dump(dct, allow_unicode=True)
         assert '[Macro]' in serialized_output

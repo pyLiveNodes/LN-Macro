@@ -63,10 +63,13 @@ class MacroHelper(Node, abstract_class=True):
         # Call super().add_input() with the mapped node
         super(mapped_node.__class__, mapped_node).add_input(emit_node, emit_port, mapped_port)
 
+    def _serialize_name(self):
+        return str(self).replace(f'[{self.__class__.__name__}]', '[Macro]')
+
     def _add_output(self, connection):
-        new_cls = self
+        new_obj = self
         def serialize_compact(self):
-            nonlocal new_cls
+            nonlocal new_obj
             # the str(self._emit_node) should not change, since neither the class nor the name of the node are accessible to the user
             # except, that the name might be changed by the system if str(node) is not unique in the graph
             #   -> we could prefix the node name with the macro name
@@ -74,7 +77,8 @@ class MacroHelper(Node, abstract_class=True):
             #   -> is there a better unique prefix, that we know not yet exists in a graph?
             #   -> here the cat bites it's own tail... =
             #   => change the nodes name, rather than the macro's name
-            return f"{str(new_cls)}.{new_cls._encode_node_port(self._emit_node, self._emit_port.key).replace(new_cls.node_macro_id_suffix, '')} -> {str(self._recv_node)}.{str(self._recv_port.key)}"
+            emit_port = new_obj._encode_node_port(self._emit_node, self._emit_port.key).replace(new_obj.node_macro_id_suffix, '')
+            return f"{new_obj._serialize_name()}.{emit_port} -> {str(self._recv_node)}.{str(self._recv_port.key)}"
 
         # mapped_node = connection._emit_node
         mapped_node, mapped_port = self.__get_correct_node(connection._emit_port, io='out')
@@ -162,9 +166,9 @@ class Macro(MacroHelper):
                     # change the recv_node to the macro node
                     tmp_key = f"{str(inp._recv_node)}.{inp._recv_port.key}".replace(new_obj.node_macro_id_suffix, '')
                     inp._recv_port = getattr(new_obj.ports_in, own_in_port_reverse[tmp_key])
-                    inp._recv_node = new_obj
+                    inp._recv_node = new_obj._serialize_name()
                     inputs.append(inp.serialize_compact())
-            return config, inputs, str(new_obj)
+            return config, inputs, new_obj._serialize_name()
 
         for n in nodes:
             # set a unique name for each node, so that it is not changed during connection into any existing graph
@@ -192,8 +196,8 @@ if __name__ == '__main__':
     # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
     macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
     # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
-    macro.remove_all_inputs()
-    dct = in_python.to_compact_dict(graph=True)
+    # macro.remove_all_inputs()
+    # dct = in_python.to_compact_dict(graph=True)
     out_python = Out_python() 
     # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
     out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
@@ -204,5 +208,8 @@ if __name__ == '__main__':
 
     # np.testing.assert_equal(np.array(out_python.get_state()), np.array(d))
 
-    print(in_python.to_compact_dict(graph=True))
+    dct = in_python.to_compact_dict(graph=True)
+    print(dct)
+
+    s = in_python.from_compact_dict(dct)
     print('Done')
