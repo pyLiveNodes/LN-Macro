@@ -1,10 +1,14 @@
 from livenodes import Node, Ports_collection, Connection
+from ln_ports import Ports_empty
 import pathlib
 file_path = pathlib.Path(__file__).parent.resolve()
 
 class Macro(Node, abstract_class=True):
     category = "Data Source"
     description = ""
+
+    ports_in = Ports_empty()
+    ports_out = Ports_empty()
 
     example_init = {
         "path": f"{file_path}/noop.yml",
