@@ -49,9 +49,12 @@ class TestProcessing:
     def test_loadable(self):
         a = Macro(path=Macro.example_init["path"])
         assert isinstance(a, MacroHelper)
+        assert str(a) == 'Macro:noop [Macro:noop]'
 
     def test_port_context(self):
         a = Macro(path=Macro.example_init["path"])
+        assert len(a.ports_in) == 1
+        assert len(a.ports_out) == 1
         assert a.ports_in.Noop_any.key == "Noop_any"
         assert a.nodes[0].ports_in.any.key == "any"
 
