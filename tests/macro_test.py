@@ -56,7 +56,7 @@ class TestProcessing:
         assert len(a.ports_in) == 2
         assert len(a.ports_out) == 2
         assert a.ports_in.Noop_any.key == "Noop_any"
-        # assert a.ports_in.Noop_any.label == "Noop: any"
+        assert a.ports_in.Noop_any.label == "Noop: Any"
         assert a.nodes[0].ports_in.any.key == "any"
 
     def test_connectable_input(self):

@@ -121,16 +121,16 @@ class Macro(MacroHelper):
 
         # Populate the lists using classic for loops
         for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=True):
-            # port_value.label = f"{n.name}: {port_value.label}"
+            macro_port = port_value.__class__(f"{n.name}: {port_value.label}", optional=port_value.optional, key=port_value.key)
             in_field_names.append(cls._encode_node_port(n, port_name))
-            in_field_defaults.append(port_value)
+            in_field_defaults.append(macro_port)
             own_in_port_to_ref[cls._encode_node_port(n, port_name)] = (n, port_name, port_value)
             own_in_port_reverse[f"{str(n)}.{port_name}"] = cls._encode_node_port(n, port_name)
             
         for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=False):
-            # port_value.label = f"{n.name}: {port_value.label}"
+            macro_port = port_value.__class__(f"{n.name}: {port_value.label}", optional=port_value.optional, key=port_value.key)
             out_field_names.append(cls._encode_node_port(n, port_name))
-            out_field_defaults.append(port_value)
+            out_field_defaults.append(macro_port)
             own_out_port_to_ref[cls._encode_node_port(n, port_name)] = (n, port_name, port_value)
 
 
