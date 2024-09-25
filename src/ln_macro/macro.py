@@ -127,7 +127,7 @@ class Macro(MacroHelper):
             own_in_port_to_ref[cls._encode_node_port(n, port_name)] = (n, port_name, port_value)
             own_in_port_reverse[f"{str(n)}.{port_name}"] = cls._encode_node_port(n, port_name)
             
-        for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=True):
+        for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=False):
             # port_value.label = f"{n.name}: {port_value.label}"
             out_field_names.append(cls._encode_node_port(n, port_name))
             out_field_defaults.append(port_value)

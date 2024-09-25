@@ -14,7 +14,7 @@ def build_pipeline(data=[100]):
     macro = Macro(path=Macro.example_init["path"])
     macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
     out_python = Out_python()
-    out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
+    out_python.add_input(macro, emit_port=macro.ports_out.Noop2_any, recv_port=out_python.ports_in.any)
 
     return in_python, macro, out_python
 
@@ -53,9 +53,10 @@ class TestProcessing:
 
     def test_port_context(self):
         a = Macro(path=Macro.example_init["path"])
-        assert len(a.ports_in) == 1
-        assert len(a.ports_out) == 1
+        assert len(a.ports_in) == 2
+        assert len(a.ports_out) == 2
         assert a.ports_in.Noop_any.key == "Noop_any"
+        # assert a.ports_in.Noop_any.label == "Noop: any"
         assert a.nodes[0].ports_in.any.key == "any"
 
     def test_connectable_input(self):
@@ -91,7 +92,7 @@ class TestProcessing:
         print(dct)
         assert list(sorted(dct['Nodes'].keys())) == ['Macro:noop [Macro]', 'Python Input [In_python]', 'Python Output [Out_python]']
         assert dct['Inputs'][1] == 'Python Input [In_python].any -> Macro:noop [Macro].Noop_any'
-        assert dct['Inputs'][0] == 'Macro:noop [Macro].Noop_any -> Python Output [Out_python].any'
+        assert dct['Inputs'][0] == 'Macro:noop [Macro].Noop2_any -> Python Output [Out_python].any'
 
         serialized_output = yaml.dump(dct, allow_unicode=True)
         assert '[Macro]' in serialized_output
@@ -109,14 +110,19 @@ class TestProcessing:
         np.testing.assert_equal(np.array(data), np.array(out_python.get_state()))
 
         # now serialize and deserialize and check if still working
-        s = in_python.from_compact_dict(in_python.to_compact_dict(graph=True))
+        s = Node.from_compact_dict(in_python.to_compact_dict(graph=True))
         s.data = data
         g = Graph(start_node=s)
         g.start_all()
         g.join_all()
         g.stop_all()
+        # TODO: update this once https://gitlab.csl.uni-bremen.de/livenodes/livenodes/-/issues/57 is merged
         assert isinstance(s, In_python)
-        o = s.output_connections[0]._recv_node.output_connections[0]._recv_node
+        n1 = s.output_connections[0]._recv_node
+        assert isinstance(n1, Noop)
+        n2 = n1.output_connections[0]._recv_node
+        assert isinstance(n2, Noop)
+        o = n2.output_connections[0]._recv_node
         assert isinstance(o, Out_python)
         np.testing.assert_equal(np.array(data), np.array(o.get_state()))
 

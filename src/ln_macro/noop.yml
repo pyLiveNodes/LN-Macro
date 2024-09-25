@@ -1,5 +1,9 @@
-Inputs: []
+Inputs: 
+- Noop [Noop].any -> Noop2 [Noop].any
 Nodes:
   Noop [Noop]:
     compute_on: ''
     name: Noop
+  Noop2 [Noop]:
+    compute_on: ''
+    name: Noop2
