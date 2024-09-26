@@ -4,28 +4,6 @@ from ln_ports import Ports_empty
 import pathlib
 file_path = pathlib.Path(__file__).parent.resolve()
 
-# ### This Block is basically the same as implemented in node, but resolves macros 
-# # There probably is a more elgant way to do this... -yh
-# def discover_graph_names_exclude_self(macro_node):
-#     # the macro is always excluded if we start the discovery from the any sub-graph node, as the macro is not connected, but all of them are
-#     nodes = macro_node.nodes[0].discover_graph()
-#     # the clue now is to infer any node that was inserted by the macro
-#     for n in self.nodes:   
-#         nodes.extend(n.discover_graph(n))
-#     return list(map(str, nodes))
-
-# def create_unique_name(macro_node, base, node_name_list=None):
-#     if node_name_list is None:
-#         node_name_list = macro_node.discover_graph_names_exclude_self(macro_node)
-
-#     node_name_list = set(node_name_list)
-#     if not base in node_name_list:
-#         return base
-    
-#     # basically adjust base by counting then recurse until we find a good name and return that
-#     return create_unique_name(f"{base}_1", node_name_list=node_name_list)
-# ### End Block
-
 class MacroHelper(Node, abstract_class=True):
     category = "Meta"
     description = ""
@@ -103,7 +81,7 @@ class MacroHelper(Node, abstract_class=True):
         for n in nodes:
             if hasattr(n, '_macro_parent'):
                 nodes.append(n._macro_parent)
-        return nodes
+        return node.remove_discovered_duplicates(nodes)
         
     def add_input(self, emit_node, emit_port, recv_port):
         # Retrieve the appropriate node from self.in_map using recv_port
@@ -122,6 +100,14 @@ class MacroHelper(Node, abstract_class=True):
 
     def _add_output(self, connection):
         new_obj = self
+        def map_fn(con):
+            nonlocal new_obj
+            if con._emit_node is new_obj:
+                mapped_node, mapped_port = new_obj.__get_correct_node(con._emit_port, io='out')
+                con._emit_node = mapped_node
+                con._emit_port = mapped_port
+            return con
+
         def serialize_compact(self):
             nonlocal new_obj
             # the str(self._emit_node) should not change, since neither the class nor the name of the node are accessible to the user
@@ -134,12 +120,20 @@ class MacroHelper(Node, abstract_class=True):
             emit_port = new_obj._encode_node_port(self._emit_node, self._emit_port.key).replace(new_obj.node_macro_id_suffix, '')
             return f"{new_obj._serialize_name()}.{emit_port} -> {str(self._recv_node)}.{str(self._recv_port.key)}"
 
-        # mapped_node = connection._emit_node
-        mapped_node, mapped_port = self.__get_correct_node(connection._emit_port, io='out')
-        connection._emit_node = mapped_node
-        connection._emit_port = mapped_port
+        # it is important we keep the original function here, as we might patch this multiple times 
+        # e.g. if multiple (different) macros input to the same node
+        prev_rm_fn = connection._recv_node.remove_input_by_connection
+        def remove_input_by_connection(self, connection):
+            nonlocal map_fn
+            prev_rm_fn(map_fn(connection))
+
+        # patch connection
+        connection = map_fn(connection)
         connection.serialize_compact = serialize_compact.__get__(connection, connection.__class__)
-        super(mapped_node.__class__, mapped_node)._add_output(connection)
+        # patch recv_node so that it removes the correct input if the connection is removed later
+        connection._recv_node.remove_input_by_connection = remove_input_by_connection.__get__(connection._recv_node, connection._recv_node.__class__)
+        # now add the connection to the mapped node
+        super(connection._emit_node.__class__, connection._emit_node)._add_output(connection)
 
     def remove_all_inputs(self):
         # TODO: this is currently untested

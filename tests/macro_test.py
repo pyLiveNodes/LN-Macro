@@ -67,7 +67,7 @@ class TestProcessing:
         assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anything'
         assert in_python.provides_input_to(macro.nodes[0]), 'Input should be connected to the only node in macro'
 
-    def test_deconnectable(self):
+    def test_deconnectable_all(self):
         in_python, macro, out_python = build_pipeline()
         assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anything'
         assert in_python.provides_input_to(macro.nodes[0]), 'Input should be connected to the only node in macro'
@@ -79,6 +79,21 @@ class TestProcessing:
         assert not in_python.provides_input_to(macro.nodes[0]), 'Input should not be connected to the only node in macro anymore since we removed that connection'
         assert not macro.provides_input_to(out_python), 'Macro should not be connected to output anymore'
         assert not macro.nodes[1].provides_input_to(out_python), 'Node in macro should not be connected to output anymore'
+
+    def test_deconnectable_specific(self):
+        in_python, macro, out_python = build_pipeline()
+        assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anything'
+        assert in_python.provides_input_to(macro.nodes[0]), 'Input should be connected to the only node in macro'
+        assert macro.nodes[1].provides_input_to(out_python), 'Input should be connected to the only node in macro'
+
+        macro.remove_input(emit_node=in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
+        out_python.remove_input(emit_node=macro, emit_port=macro.ports_out.Noop2_any, recv_port=out_python.ports_in.any)
+        assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anything'
+        assert not in_python.provides_input_to(macro.nodes[0]), 'Input should not be connected to the only node in macro anymore since we removed that connection'
+        assert not macro.provides_input_to(out_python), 'Macro should not be connected to output anymore'
+        assert not macro.nodes[1].provides_input_to(out_python), 'Node in macro should not be connected to output anymore'
+
+
 
     def test_using_constructor_of_created(self):
         a = Macro(path=Macro.example_init["path"])
