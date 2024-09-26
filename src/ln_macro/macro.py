@@ -64,6 +64,21 @@ class MacroHelper(Node, abstract_class=True):
     
     def _settings(self):
         return {"path": self.path, "name": self.name}
+    
+    ## TODO: this is an absolute hack, but follows the current livenodes implementation
+    def _set_attr(self, **kwargs):
+        # make sure the names are unique when being set
+        if 'name' in kwargs:
+            node_list = self.discover_graph_incl_macros(self)
+            if not self.is_unique_name(kwargs['name'], node_list=node_list):
+                kwargs['name'] = self.create_unique_name(kwargs['name'], node_list=node_list)
+
+        # set values (again, we need a more specific idea of how node states and setting changes should look like!)
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+
+        # return the finally set values (TODO: should this be explizit? or would it be better to expect that params might not by finally set as passed?)
+        return kwargs
 
     def __get_correct_node(self, port, io='in'):
         # Retrieve the appropriate node from self.in_map using recv_port
