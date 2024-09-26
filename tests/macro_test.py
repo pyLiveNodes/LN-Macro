@@ -86,6 +86,12 @@ class TestProcessing:
         assert len(b.ports_out) == 2
         assert b.ports_in.Noop_any.key == "Noop_any"
 
+    def test_unique_name(self):
+        in_python, macro, out_python = build_pipeline([100])
+        macro2 = Macro(path=Macro.example_init["path"])
+        macro2.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro2.ports_in.Noop_any)
+        assert macro2.name != macro.name
+
     def test_list(self):
         run_single_test(list(range(100)))
 

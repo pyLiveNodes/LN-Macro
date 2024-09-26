@@ -1,7 +1,30 @@
 from livenodes import Node, Ports_collection, Connection
 from ln_ports import Ports_empty
+
 import pathlib
 file_path = pathlib.Path(__file__).parent.resolve()
+
+# ### This Block is basically the same as implemented in node, but resolves macros 
+# # There probably is a more elgant way to do this... -yh
+# def discover_graph_names_exclude_self(macro_node):
+#     # the macro is always excluded if we start the discovery from the any sub-graph node, as the macro is not connected, but all of them are
+#     nodes = macro_node.nodes[0].discover_graph()
+#     # the clue now is to infer any node that was inserted by the macro
+#     for n in self.nodes:   
+#         nodes.extend(n.discover_graph(n))
+#     return list(map(str, nodes))
+
+# def create_unique_name(macro_node, base, node_name_list=None):
+#     if node_name_list is None:
+#         node_name_list = macro_node.discover_graph_names_exclude_self(macro_node)
+
+#     node_name_list = set(node_name_list)
+#     if not base in node_name_list:
+#         return base
+    
+#     # basically adjust base by counting then recurse until we find a good name and return that
+#     return create_unique_name(f"{base}_1", node_name_list=node_name_list)
+# ### End Block
 
 class MacroHelper(Node, abstract_class=True):
     category = "Meta"
@@ -56,12 +79,28 @@ class MacroHelper(Node, abstract_class=True):
             raise ValueError(f"No node found in in_map for recv_port: {port}")
         
         return mapped_node, mapped_port
-
+    
+    @staticmethod
+    def discover_graph_incl_macros(node, direction='both', sort=True):
+        if isinstance(node, MacroHelper):
+            node = node.nodes[0]
+        nodes = node.discover_graph(node, direction=direction, sort=sort)
+        for n in nodes:
+            if hasattr(n, '_macro_parent'):
+                nodes.append(n._macro_parent)
+        return nodes
+        
     def add_input(self, emit_node, emit_port, recv_port):
         # Retrieve the appropriate node from self.in_map using recv_port
         mapped_node, mapped_port = self.__get_correct_node(recv_port, io='in')
         # Call super().add_input() with the mapped node
         super(mapped_node.__class__, mapped_node).add_input(emit_node, emit_port, mapped_port)
+
+        node_list = self.discover_graph_incl_macros(mapped_node)
+        if not self.is_unique_name(self.name, node_list=node_list):
+            new_name = self.create_unique_name(self.name, node_list=node_list)
+            self.warn(f"{str(self)} not unique in new graph. Renaming Node to: {new_name}")
+            self._set_attr(name=new_name)
 
     def _serialize_name(self):
         return str(self).replace(f'[{self.__class__.__name__}]', '[Macro]')
@@ -176,10 +215,11 @@ class Macro(MacroHelper):
             # set a unique name for each node, so that it is not changed during connection into any existing graph
             # NOTE: we set this here as we don't want the suffix to bleed into the port names etc
             #    only for keeping the node name unique within the subgraph and the serialized graph
-            #    TODO: double check if this results in any issues down the road
+            #    TODO: double check if this results in any issues down the road -> so far test are looking good -yh
             n.name = f"{n.name}{new_obj.node_macro_id_suffix}"
             # following: https://stackoverflow.com/a/28127947
             n.compact_settings = compact_settings.__get__(n, n.__class__)
+            n._macro_parent = new_obj
 
         return new_obj
 
