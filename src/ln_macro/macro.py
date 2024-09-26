@@ -58,6 +58,15 @@ class MacroHelper(Node, abstract_class=True):
         #   however, this is not the case for inputs, as they use inputs.extend() and thus we should only return those once
         # (2) The idea for outputs is to overwrite the serialize_compact method of their connection classes to return the macro instead of the sub-graph nodes
         #   This happens by overwriting the add_output method of the sub-graph nodes
+        def adjust(node, port):
+            if not hasattr(node, '_macro_parent'):
+                return node, port
+            m_parent = node._macro_parent
+            tmp_key = f"{str(node)}.{port.key}".replace(m_parent.node_macro_id_suffix, '')
+            _port = getattr(m_parent.ports_in, own_in_port_reverse[tmp_key])
+            _node = m_parent._serialize_name()
+            return _node, _port
+
         closure_self = self
         def compact_settings(self):
             nonlocal closure_self, own_in_port_reverse
@@ -69,9 +78,8 @@ class MacroHelper(Node, abstract_class=True):
                     # copy connection, so that the original is not changed (not sure if necessary, but feels right)
                     inp = Connection(inp._emit_node, inp._recv_node, inp._emit_port, inp._recv_port)
                     # change the recv_node to the macro node
-                    tmp_key = f"{str(inp._recv_node)}.{inp._recv_port.key}".replace(closure_self.node_macro_id_suffix, '')
-                    inp._recv_port = getattr(closure_self.ports_in, own_in_port_reverse[tmp_key])
-                    inp._recv_node = closure_self._serialize_name()
+                    inp._emit_node, inp._emit_port = adjust(inp._emit_node, inp._emit_port)
+                    inp._recv_node, inp._recv_port = adjust(inp._recv_node, inp._recv_port)
                     inputs.append(inp.serialize_compact())
             return config, inputs, closure_self._serialize_name()
 
