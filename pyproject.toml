@@ -37,6 +37,6 @@ build-backend = 'setuptools.build_meta'
 enabled = true
 
 [tool.black]
-line-length = 140
+line-length = 180
 target-version = ['py312']
 skip-string-normalization = true

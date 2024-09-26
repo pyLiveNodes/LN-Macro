@@ -49,6 +49,7 @@ class MacroHelper(Node, abstract_class=True):
         self.nodes = nodes
         self.own_in_port_to_ref = own_in_port_to_ref
         self.own_out_port_to_ref = own_out_port_to_ref
+        self.own_in_port_reverse = own_in_port_reverse
 
         # --- Patch Settings / Serialization ----------------
         # There are two main thoughts: (1) how to patch inputs into the macro and (2) how to patch nodes the macro inputs to (ie macros output)
@@ -58,18 +59,9 @@ class MacroHelper(Node, abstract_class=True):
         #   however, this is not the case for inputs, as they use inputs.extend() and thus we should only return those once
         # (2) The idea for outputs is to overwrite the serialize_compact method of their connection classes to return the macro instead of the sub-graph nodes
         #   This happens by overwriting the add_output method of the sub-graph nodes
-        def adjust(node, port):
-            if not hasattr(node, '_macro_parent'):
-                return node, port
-            m_parent = node._macro_parent
-            tmp_key = f"{str(node)}.{port.key}".replace(m_parent.node_macro_id_suffix, '')
-            _port = getattr(m_parent.ports_in, own_in_port_reverse[tmp_key])
-            _node = m_parent._serialize_name()
-            return _node, _port
-
         closure_self = self
         def compact_settings(self):
-            nonlocal closure_self, own_in_port_reverse
+            nonlocal closure_self
             config = closure_self.get_settings().get('settings', {})
             inputs = []
             for inp in self.input_connections:
@@ -78,8 +70,8 @@ class MacroHelper(Node, abstract_class=True):
                     # copy connection, so that the original is not changed (not sure if necessary, but feels right)
                     inp = Connection(inp._emit_node, inp._recv_node, inp._emit_port, inp._recv_port)
                     # change the recv_node to the macro node
-                    inp._emit_node, inp._emit_port = adjust(inp._emit_node, inp._emit_port)
-                    inp._recv_node, inp._recv_port = adjust(inp._recv_node, inp._recv_port)
+                    inp._emit_node, inp._emit_port = closure_self.adjust(inp._emit_node, inp._emit_port)
+                    inp._recv_node, inp._recv_port = closure_self.adjust(inp._recv_node, inp._recv_port)
                     inputs.append(inp.serialize_compact())
             return config, inputs, closure_self._serialize_name()
 
@@ -143,6 +135,16 @@ class MacroHelper(Node, abstract_class=True):
             raise ValueError(f"No node found in in_map for recv_port: {port}")
         
         return mapped_node, mapped_port
+    
+    @staticmethod
+    def adjust(node, port):
+        if not hasattr(node, '_macro_parent'):
+            return node, port
+        m_parent = node._macro_parent
+        tmp_key = f"{str(node)}.{port.key}".replace(m_parent.node_macro_id_suffix, '')
+        _port = getattr(m_parent.ports_in, m_parent.own_in_port_reverse[tmp_key])
+        _node = m_parent._serialize_name()
+        return _node, _port
     
     @staticmethod
     def discover_graph_incl_macros(node, direction='both', sort=True):
@@ -215,7 +217,8 @@ class MacroHelper(Node, abstract_class=True):
                     super(n.__class__, n).remove_input_by_connection(con)
     
     def remove_input_by_connection(self, connection):
-        # mapped_node = connection._emit_node
+        if isinstance(connection._emit_node, MacroHelper):
+            connection._emit_node, connection._emit_port = connection._emit_node.__get_correct_node(connection._emit_port, io='out')
         mapped_node, mapped_port = self.__get_correct_node(connection._recv_port, io='in')
         connection._recv_node = mapped_node
         connection._recv_port = mapped_port

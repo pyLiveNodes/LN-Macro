@@ -125,17 +125,20 @@ class TestProcessing:
         macro2 = macro.__class__(path=Macro.example_init["path"])
         macro2.add_input(macro, emit_port=macro.ports_out.Noop2_any, recv_port=macro2.ports_in.Noop_any)
         assert macro2.name != macro.name
-        macro2._set_attr(name=macro.name)
-        assert macro2.name != macro.name
         assert str(macro.nodes[1]) != str(macro2.nodes[0])
         assert in_python.provides_input_to(macro.nodes[0])
         assert in_python.provides_input_to(macro2.nodes[0])
+        
+        macro2._set_attr(name=macro.name)
+        assert macro2.name != macro.name
+
         dct = in_python.to_compact_dict(graph=True)
-        print(dct)
         assert set(dct['Inputs']) == set(['Python Input [In_python].any -> Macro:noop [Macro].Noop_any', 
             'Macro:noop [Macro].Noop2_any -> Python Output [Out_python].any',
             'Macro:noop [Macro].Noop2_any -> Macro:noop_1 [Macro].Noop_any'])
-        # assert dct['Inputs'][0] == 'Noop2[[m:4392854032]] [Noop].any -> Macro:noop_1 [Macro].Noop2_any'
+        
+        macro2.remove_input(emit_node=macro, emit_port=macro.ports_out.Noop2_any, recv_port=macro2.ports_in.Noop_any)
+        assert not in_python.provides_input_to(macro2.nodes[0])
 
     def test_list(self):
         run_single_test(list(range(100)))
