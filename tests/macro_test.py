@@ -77,6 +77,15 @@ class TestProcessing:
         assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anything'
         assert not in_python.provides_input_to(macro.nodes[0]), 'Input should not be connected to the only node in macro anymore since we removed that connection'
 
+    def test_using_constructor_of_created(self):
+        a = Macro(path=Macro.example_init["path"])
+        assert len(a.ports_out) == 2
+        assert a.ports_in.Noop_any.key == "Noop_any"
+
+        b = a.__class__(path=Macro.example_init["path"])
+        assert len(b.ports_out) == 2
+        assert b.ports_in.Noop_any.key == "Noop_any"
+
     def test_list(self):
         run_single_test(list(range(100)))
 

@@ -137,14 +137,16 @@ class Macro(MacroHelper):
         # --- Create new (sub) class ----------------
         # new_cls = super(Macro, cls).__new__(cls)
         cls_name = f"Macro:{path.split('/')[-1].split('.')[-2]}"
-        new_obj = type(cls_name, (MacroHelper, ), {})(path=path, name=name, compute_on=compute_on, **kwargs)
-        new_obj.ports_in = type('Macro_Ports_In', (Ports_collection,), dict(zip(in_field_names, in_field_defaults)))()
-        new_obj.ports_out = type('Macro_Ports_Out', (Ports_collection,), dict(zip(out_field_names, out_field_defaults)))()
-        new_obj.pl = pl
-        new_obj.nodes = nodes
-        new_obj.own_in_port_to_ref = own_in_port_to_ref
-        new_obj.own_out_port_to_ref = own_out_port_to_ref
+        new_cls = type(cls_name, (MacroHelper, ), {})
+        new_cls.ports_in = type('Macro_Ports_In', (Ports_collection,), dict(zip(in_field_names, in_field_defaults)))()
+        new_cls.ports_out = type('Macro_Ports_Out', (Ports_collection,), dict(zip(out_field_names, out_field_defaults)))()
+        new_cls.pl = pl
+        new_cls.nodes = nodes
+        new_cls.own_in_port_to_ref = own_in_port_to_ref
+        new_cls.own_out_port_to_ref = own_out_port_to_ref
 
+        # -- Create new instance from that new class ----------------
+        new_obj = new_cls(path=path, name=name, compute_on=compute_on, **kwargs)
 
         # --- Patch Settings / Serialization ----------------
         # There are two main thoughts: (1) how to patch inputs into the macro and (2) how to patch nodes the macro inputs to (ie macros output)
