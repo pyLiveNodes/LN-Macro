@@ -18,10 +18,11 @@ class MacroHelper(Node, abstract_class=True):
 
     def __init__(self, path, name=None, compute_on="", **kwargs):
         name = self.name(name, path)
-        super().__init__(name, compute_on="", **kwargs)
+        super().__init__(name, compute_on=compute_on, **kwargs)
 
         self.path = path
 
+        # --- Load the pipeline ----------------
         pl = Node.load(path)
         nodes = pl.sort_discovered_nodes(pl.discover_graph(pl))
         
