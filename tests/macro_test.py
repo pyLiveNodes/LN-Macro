@@ -123,10 +123,11 @@ class TestProcessing:
     def test_unique_name_during_chain(self):
         in_python, macro, out_python = build_pipeline([100])
         macro2 = Macro(path=Macro.example_init["path"])
-        macro2.add_input(macro, emit_port=macro.ports_out.Noop2_any, recv_port=macro2.ports_in.Noop_any)
+        macro2.add_input(macro, emit_port=macro.ports_out.Noop2_any, recv_port=macro2.ports_in.Noop2_any)
         assert macro2.name != macro.name
         macro2._set_attr(name=macro.name)
         assert macro2.name != macro.name
+        assert str(macro.nodes[1]) != str(macro2.nodes[0])
         assert in_python.provides_input_to(macro.nodes[0])
         assert in_python.provides_input_to(macro2.nodes[0])
 
