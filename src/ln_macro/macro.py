@@ -259,6 +259,7 @@ if __name__ == '__main__':
     # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
     out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
     # g = Graph(start_node=in_python)
+    out_python.remove_all_inputs()
     # g.start_all()
     # g.join_all()
     # g.stop_all()

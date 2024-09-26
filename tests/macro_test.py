@@ -71,11 +71,14 @@ class TestProcessing:
         in_python, macro, out_python = build_pipeline()
         assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anything'
         assert in_python.provides_input_to(macro.nodes[0]), 'Input should be connected to the only node in macro'
+        assert macro.nodes[1].provides_input_to(out_python), 'Input should be connected to the only node in macro'
 
         macro.remove_all_inputs()
         out_python.remove_all_inputs()
         assert not in_python.provides_input_to(macro), 'Macro itself should never be connected, as it\'s not processing anything'
         assert not in_python.provides_input_to(macro.nodes[0]), 'Input should not be connected to the only node in macro anymore since we removed that connection'
+        assert not macro.provides_input_to(out_python), 'Macro should not be connected to output anymore'
+        assert not macro.nodes[1].provides_input_to(out_python), 'Node in macro should not be connected to output anymore'
 
     def test_using_constructor_of_created(self):
         a = Macro(path=Macro.example_init["path"])
