@@ -160,6 +160,14 @@ class TestProcessing:
         serialized_output = yaml.dump(dct, allow_unicode=True)
         assert '[Macro]' in serialized_output
         assert '[Noop]' not in serialized_output
+
+    def test_serialize_directly(self):
+        macro = Macro(path=Macro.example_init["path"])
+        dct = macro.to_compact_dict(graph=True)
+        print(dct)
+
+        serialized_output = yaml.dump(dct, allow_unicode=True)
+        assert '[Macro]' in serialized_output
         
 
     def test_deserialize(self):

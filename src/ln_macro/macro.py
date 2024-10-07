@@ -4,7 +4,14 @@ from ln_ports import Ports_empty
 import pathlib
 file_path = pathlib.Path(__file__).parent.resolve()
 
+from enum import Enum
+# NOTE: this is only needed/used atm because for some reason isinstance(node, MacroHelper) is not always true for nodes from macros...
+class MAttr(Enum):
+    macro = 1
+    macro_child = 2
+
 class MacroHelper(Node, abstract_class=True):
+    attrs = [MAttr.macro]
     category = "Meta"
     description = ""
 
@@ -24,11 +31,12 @@ class MacroHelper(Node, abstract_class=True):
 
         # --- Load the pipeline ----------------
         pl = Node.load(path)
-        nodes = pl.sort_discovered_nodes(pl.discover_graph(pl))
+        nodes = self._discover_graph_excl_macros(pl)
         
         # Set the compute_on attribute for all nodes 
         for n in nodes:
             n.compute_on = compute_on
+            n.attrs.append(MAttr.macro_child)
 
         # --- Match Ports ----------------
         # Initialize lists for field names and defaults
@@ -95,9 +103,9 @@ class MacroHelper(Node, abstract_class=True):
     def all_ports_sub_nodes(nodes, ret_in = True):
         return [(n, port_name, port_value) for n in nodes for (port_name, port_value) in (n.ports_in if ret_in else n.ports_out)._asdict().items()]
 
-    @staticmethod
-    def _encode_node_port(node, port_name):
-        return f"{node.name}_{port_name}"
+    @classmethod
+    def _encode_node_port(cls, node, port_name):
+        return f"{cls._get_node_name(node)}_{port_name}"
     
     @property
     def node_macro_id_suffix(self):
@@ -105,6 +113,13 @@ class MacroHelper(Node, abstract_class=True):
     
     def _settings(self):
         return {"path": self.path, "name": self.name}
+    
+    # def compact_settings(self):
+    #     config = self.get_settings().get('settings', {})
+    #     inputs = [
+    #         inp.serialize_compact() for inp in self.input_connections
+    #     ]
+    #     return config, inputs, str(self)
     
     ## TODO: this is an absolute hack, but follows the current livenodes implementation
     def _set_attr(self, **kwargs):
@@ -147,6 +162,13 @@ class MacroHelper(Node, abstract_class=True):
         return _node, _port
     
     @staticmethod
+    def _discover_graph_excl_macros(node, direction='both', sort=True):
+        if isinstance(node, MacroHelper) or MAttr.macro in node.attrs:
+            node = node.nodes[0]
+        nodes = node.discover_graph(node, direction=direction, sort=sort)
+        return node.remove_discovered_duplicates(nodes)
+
+    @staticmethod
     def discover_graph_incl_macros(node, direction='both', sort=True):
         if isinstance(node, MacroHelper):
             node = node.nodes[0]
@@ -158,6 +180,7 @@ class MacroHelper(Node, abstract_class=True):
         
     def add_input(self, emit_node, emit_port, recv_port):
         # Retrieve the appropriate node from self.in_map using recv_port
+        # TODO: the correct_node is wrong here, since its mapping is determined in __new__ however the object created in __init__ is different and unfortunately the created ports contain the subgraph's macro suffix
         mapped_node, mapped_port = self.__get_correct_node(recv_port, io='in')
         # Call super().add_input() with the mapped node
         super(mapped_node.__class__, mapped_node).add_input(emit_node, emit_port, mapped_port)
@@ -170,6 +193,13 @@ class MacroHelper(Node, abstract_class=True):
 
     def _serialize_name(self):
         return str(self).replace(f'[{self.__class__.__name__}]', '[Macro]')
+    
+    @staticmethod
+    def _get_node_name(node):
+        suffix = ''
+        if hasattr(node, '_macro_parent'):
+            suffix = node._macro_parent.node_macro_id_suffix
+        return node.name.replace(suffix, '')
 
     def _add_output(self, connection):
         new_obj = self
@@ -232,7 +262,7 @@ class Macro(MacroHelper):
         # --- Load the pipeline ----------------
         # this is not kept (ie the one kept is the one from __init__), but we need to load the pipeline to get the ports
         pl = Node.load(path)
-        nodes = pl.sort_discovered_nodes(pl.discover_graph(pl))
+        nodes = cls._discover_graph_excl_macros(pl)
         
         # --- Match Ports ----------------
         # Initialize lists for field names and defaults
@@ -241,12 +271,12 @@ class Macro(MacroHelper):
 
         # Populate the lists using classic for loops
         for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=True):
-            macro_port = port_value.__class__(f"{n.name}: {port_value.label}", optional=port_value.optional, key=port_value.key)
+            macro_port = port_value.__class__(f"{cls._get_node_name(n)}: {port_value.label}", optional=port_value.optional, key=port_value.key)
             in_field_names.append(cls._encode_node_port(n, port_name))
             in_field_defaults.append(macro_port)
             
         for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=False):
-            macro_port = port_value.__class__(f"{n.name}: {port_value.label}", optional=port_value.optional, key=port_value.key)
+            macro_port = port_value.__class__(f"{cls._get_node_name(n)}: {port_value.label}", optional=port_value.optional, key=port_value.key)
             out_field_names.append(cls._encode_node_port(n, port_name))
             out_field_defaults.append(macro_port)
 
@@ -260,38 +290,41 @@ class Macro(MacroHelper):
         
         # -- Create new instance from that new class ----------------
         new_obj = new_cls(path=path, name=name, compute_on=compute_on, **kwargs)
+        assert issubclass(new_cls, MacroHelper)
+        assert isinstance(new_obj, MacroHelper)
         return new_obj
 
 if __name__ == '__main__':
     # m = Macro(path=Macro.example_init["path"]) 
-    # print(m.ports_in)
+    m = Macro(path="/Users/yale/Repositories/livenodes/packages/ln_macro/src/ln_macro/noop_nested_2.yml")
+    print(m.ports_in)
 
-    from livenodes import Graph
-    from ln_io_python.in_python import In_python
-    from ln_io_python.out_python import Out_python
-    import numpy as np
+    # from livenodes import Graph
+    # from ln_io_python.in_python import In_python
+    # from ln_io_python.out_python import Out_python
+    # import numpy as np
 
-    d = [100]
-    in_python = In_python(data=d)
-    macro = Macro(path=Macro.example_init["path"])
-    # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
-    macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
-    # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
-    # macro.remove_all_inputs()
-    # dct = in_python.to_compact_dict(graph=True)
-    out_python = Out_python() 
-    # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
-    out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
-    # g = Graph(start_node=in_python)
-    out_python.remove_all_inputs()
+    # d = [100]
+    # in_python = In_python(data=d)
+    # macro = Macro(path=Macro.example_init["path"])
+    # # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
+    # macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
+    # # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
+    # # macro.remove_all_inputs()
+    # # dct = in_python.to_compact_dict(graph=True)
+    # out_python = Out_python() 
+    # # print(macro.ports_in.Noop_any.key, macro.ports_out.Noop_any.key)
+    # out_python.add_input(macro, emit_port=macro.ports_out.Noop_any, recv_port=out_python.ports_in.any)
+    # # g = Graph(start_node=in_python)
+    # out_python.remove_all_inputs()
     # g.start_all()
     # g.join_all()
     # g.stop_all()
 
     # np.testing.assert_equal(np.array(out_python.get_state()), np.array(d))
 
-    dct = in_python.to_compact_dict(graph=True)
-    print(dct)
+    # dct = in_python.to_compact_dict(graph=True)
+    # print(dct)
 
-    s = in_python.from_compact_dict(dct)
-    print('Done')
+    # s = in_python.from_compact_dict(dct)
+    # print('Done')

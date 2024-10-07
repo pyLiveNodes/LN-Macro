@@ -1,4 +1,4 @@
-Inputs: 
+Inputs:
 - Noop [Noop].any -> Noop2 [Noop].any
 Nodes:
   Noop [Noop]:
