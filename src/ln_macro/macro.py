@@ -41,7 +41,7 @@ class MacroHelper(Node, abstract_class=True):
         # --- Match Ports ----------------
         # Initialize lists for field names and defaults
         own_in_port_to_ref, own_out_port_to_ref = {}, {}
-        own_in_port_reverse = {}
+        own_in_port_reverse, own_out_port_reverse = {}, {}
 
         # Populate the lists using classic for loops
         for n, port_name, port_value in self.all_ports_sub_nodes(nodes, ret_in=True):
@@ -50,6 +50,8 @@ class MacroHelper(Node, abstract_class=True):
             
         for n, port_name, port_value in self.all_ports_sub_nodes(nodes, ret_in=False):
             own_out_port_to_ref[self._encode_node_port(n, port_name)] = (n, port_name, port_value)
+            own_out_port_reverse[f"{str(n)}.{port_name}"] = self._encode_node_port(n, port_name)
+
 
 
         # --- Set object specifics ----------------
@@ -58,6 +60,7 @@ class MacroHelper(Node, abstract_class=True):
         self.own_in_port_to_ref = own_in_port_to_ref
         self.own_out_port_to_ref = own_out_port_to_ref
         self.own_in_port_reverse = own_in_port_reverse
+        self.own_out_port_reverse = own_out_port_reverse
 
         # --- Patch Settings / Serialization ----------------
         # There are two main thoughts: (1) how to patch inputs into the macro and (2) how to patch nodes the macro inputs to (ie macros output)
@@ -78,8 +81,8 @@ class MacroHelper(Node, abstract_class=True):
                     # copy connection, so that the original is not changed (not sure if necessary, but feels right)
                     inp = Connection(inp._emit_node, inp._recv_node, inp._emit_port, inp._recv_port)
                     # change the recv_node to the macro node
-                    inp._emit_node, inp._emit_port = closure_self.adjust(inp._emit_node, inp._emit_port)
-                    inp._recv_node, inp._recv_port = closure_self.adjust(inp._recv_node, inp._recv_port)
+                    inp._emit_node, inp._emit_port = closure_self.adjust(inp._emit_node, inp._emit_port, in_ports=False) # emiting node -> their output port is relevant
+                    inp._recv_node, inp._recv_port = closure_self.adjust(inp._recv_node, inp._recv_port, in_ports=True) # recv node -> their input port is relevant
                     inputs.append(inp.serialize_compact())
             return config, inputs, closure_self._serialize_name()
 
@@ -150,12 +153,15 @@ class MacroHelper(Node, abstract_class=True):
         return mapped_node, mapped_port
     
     @staticmethod
-    def adjust(node, port):
+    def adjust(node, port, in_ports):
         if not hasattr(node, '_macro_parent'):
             return node, port
         m_parent = node._macro_parent
         tmp_key = f"{str(node)}.{port.key}".replace(m_parent.node_macro_id_suffix, '')
-        _port = getattr(m_parent.ports_in, m_parent.own_in_port_reverse[tmp_key])
+        if in_ports:
+            _port = getattr(m_parent.ports_in, m_parent.own_in_port_reverse[tmp_key])
+        else:
+            _port = getattr(m_parent.ports_out, m_parent.own_out_port_reverse[tmp_key])
         _node = m_parent._serialize_name()
         return _node, _port
     
