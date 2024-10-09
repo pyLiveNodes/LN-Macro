@@ -198,8 +198,8 @@ class MacroHelper(Node, abstract_class=True):
     
     def make_sure_name_is_unique(self, name):
         macro_list = self.discover_graph_macros_only(self.nodes[0]) # as all nodes are connected it doesn't matter from where we start to discover
-        if not self.is_unique_macro_name(self.name, macro_list):
-            new_name = self.create_unique_name(self.name, macro_list)
+        if not self.is_unique_macro_name(name, macro_list):
+            new_name = self.create_unique_name(name, macro_list)
             self.warn(f"{str(self)} not unique in new graph. Renaming Node to: {new_name}")
             return new_name
         return name
@@ -210,6 +210,7 @@ class MacroHelper(Node, abstract_class=True):
         mapped_node, mapped_port = self.__get_correct_node(recv_port, io='in')
         # Call super().add_input() with the mapped node
         super(mapped_node.__class__, mapped_node).add_input(emit_node, emit_port, mapped_port)
+        # after the processing graph is connected, make sure the macro name is unique as well
         self._set_attr(name=self.make_sure_name_is_unique(self.name))
         
 
@@ -319,8 +320,8 @@ class Macro(MacroHelper):
 
 if __name__ == '__main__':
     # m = Macro(path=Macro.example_init["path"]) 
-    m = Macro(path="/Users/yale/Repositories/livenodes/packages/ln_macro/src/ln_macro/noop_nested_2.yml")
-    print(m.ports_in)
+    # m = Macro(path="/Users/yale/Repositories/livenodes/packages/ln_macro/src/ln_macro/noop_nested_2.yml")
+    # print(m.ports_in)
 
     # from livenodes import Graph
     # from ln_io_python.in_python import In_python
@@ -351,3 +352,25 @@ if __name__ == '__main__':
 
     # s = in_python.from_compact_dict(dct)
     # print('Done')
+
+    from livenodes import Graph, Node
+    from ln_io_python.in_python import In_python
+    from ln_io_python.out_python import Out_python
+    from ln_macro import Macro, Noop, MacroHelper
+    import yaml
+
+    def build_pipeline(data=[100]):
+        in_python = In_python(data=data)
+        macro = Macro(path=Macro.example_init["path"])
+        macro.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro.ports_in.Noop_any)
+        out_python = Out_python()
+        out_python.add_input(macro, emit_port=macro.ports_out.Noop2_any, recv_port=out_python.ports_in.any)
+
+        return in_python, macro, out_python
+
+    in_python, macro, out_python = build_pipeline([100])
+    macro2 = Macro(path=Macro.example_init["path"])
+    macro2.add_input(in_python, emit_port=in_python.ports_out.any, recv_port=macro2.ports_in.Noop_any)
+    assert macro2.name != macro.name
+    macro2._set_attr(name=macro.name)
+    assert macro2.name != macro.name
