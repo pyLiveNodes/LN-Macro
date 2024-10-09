@@ -125,9 +125,7 @@ class MacroHelper(Node, abstract_class=True):
     def _set_attr(self, **kwargs):
         # make sure the names are unique when being set
         if 'name' in kwargs:
-            node_list = self.discover_graph_incl_macros(self)
-            if not self.is_unique_name(kwargs['name'], node_list=node_list):
-                kwargs['name'] = self.create_unique_name(kwargs['name'], node_list=node_list)
+            kwargs['name'] = self.make_sure_name_is_unique(kwargs['name'])
 
         # set values (again, we need a more specific idea of how node states and setting changes should look like!)
         for key, val in kwargs.items():
@@ -167,29 +165,47 @@ class MacroHelper(Node, abstract_class=True):
             node = node.nodes[0]
         nodes = node.discover_graph(node, direction=direction, sort=sort)
         return node.remove_discovered_duplicates(nodes)
-
+    
     @staticmethod
-    def discover_graph_incl_macros(node, direction='both', sort=True):
+    def discover_graph_macros_only(node, direction='both', sort=True):
         if isinstance(node, MacroHelper):
+            # start with a node that is not a macro (bc macros are never part of the processing graph)
             node = node.nodes[0]
-        nodes = node.discover_graph(node, direction=direction, sort=sort)
-        for n in nodes:
+        nodes = []
+        for n in node.discover_graph(node, direction=direction, sort=sort):
             if hasattr(n, '_macro_parent'):
                 nodes.append(n._macro_parent)
         return node.remove_discovered_duplicates(nodes)
         
+    def is_unique_macro_name(self, name, macro_list):
+        # since macros all have the same class suffix, we only need to check for the name itself
+        for m in macro_list:
+            if m.name == name and m is not self:
+                return False
+        return True
+        # return not name in [x.name for x in  set(macro_list) - set([self])]
+    
+    def create_unique_name(self, base, macro_list):
+        if self.is_unique_macro_name(base, macro_list):
+            return base
+        return self.create_unique_name(f"{base}_1", macro_list)
+    
+    def make_sure_name_is_unique(self, name):
+        macro_list = self.discover_graph_macros_only(self.nodes[0]) # as all nodes are connected it doesn't matter from where we start to discover
+        if not self.is_unique_macro_name(self.name, macro_list):
+            new_name = self.create_unique_name(self.name, macro_list)
+            self.warn(f"{str(self)} not unique in new graph. Renaming Node to: {new_name}")
+            return new_name
+        return name
+
     def add_input(self, emit_node, emit_port, recv_port):
         # Retrieve the appropriate node from self.in_map using recv_port
         # TODO: the correct_node is wrong here, since its mapping is determined in __new__ however the object created in __init__ is different and unfortunately the created ports contain the subgraph's macro suffix
         mapped_node, mapped_port = self.__get_correct_node(recv_port, io='in')
         # Call super().add_input() with the mapped node
         super(mapped_node.__class__, mapped_node).add_input(emit_node, emit_port, mapped_port)
-
-        node_list = self.discover_graph_incl_macros(mapped_node)
-        if not self.is_unique_name(self.name, node_list=node_list):
-            new_name = self.create_unique_name(self.name, node_list=node_list)
-            self.warn(f"{str(self)} not unique in new graph. Renaming Node to: {new_name}")
-            self._set_attr(name=new_name)
+        self._set_attr(name=self.make_sure_name_is_unique(self.name))
+        
 
     def _serialize_name(self):
         return str(self).replace(f'[{self.__class__.__name__}]', '[Macro]')
@@ -285,6 +301,7 @@ class Macro(MacroHelper):
         # new_cls = super(Macro, cls).__new__(cls)
         cls_name = f"Macro:{path.split('/')[-1].split('.')[-2]}"
         new_cls = type(cls_name, (MacroHelper, ), {})
+        new_cls.example_init["path"] = path
         new_cls.ports_in = type('Macro_Ports_In', (Ports_collection,), dict(zip(in_field_names, in_field_defaults)))()
         new_cls.ports_out = type('Macro_Ports_Out', (Ports_collection,), dict(zip(out_field_names, out_field_defaults)))()
         
