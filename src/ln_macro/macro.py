@@ -153,6 +153,9 @@ class MacroHelper(Node, abstract_class=True):
         
         return mapped_node, mapped_port
     
+    def to_compact_dict(self, graph=False):
+        return self.nodes[0].to_compact_dict(graph=graph)
+    
     @staticmethod
     def adjust(node, port, in_ports):
         if not hasattr(node, '_macro_parent'):

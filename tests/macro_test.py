@@ -150,9 +150,21 @@ class TestProcessing:
     def test_numpy_2D(self):
         run_single_test(np.arange(100).reshape((20, 5)))
 
-    def test_serialize(self):
+    def test_serialize_call_on_non_macro(self):
         in_python, macro, out_python = build_pipeline()
         dct = in_python.to_compact_dict(graph=True)
+        print(dct)
+        assert list(sorted(dct['Nodes'].keys())) == ['Macro:noop [Macro]', 'Python Input [In_python]', 'Python Output [Out_python]']
+        assert dct['Inputs'][1] == 'Python Input [In_python].any -> Macro:noop [Macro].Noop_any'
+        assert dct['Inputs'][0] == 'Macro:noop [Macro].Noop2_any -> Python Output [Out_python].any'
+
+        serialized_output = yaml.dump(dct, allow_unicode=True)
+        assert '[Macro]' in serialized_output
+        assert '[Noop]' not in serialized_output
+
+    def test_serialize_call_on_macro(self):
+        in_python, macro, out_python = build_pipeline()
+        dct = macro.to_compact_dict(graph=True)
         print(dct)
         assert list(sorted(dct['Nodes'].keys())) == ['Macro:noop [Macro]', 'Python Input [In_python]', 'Python Output [Out_python]']
         assert dct['Inputs'][1] == 'Python Input [In_python].any -> Macro:noop [Macro].Noop_any'
