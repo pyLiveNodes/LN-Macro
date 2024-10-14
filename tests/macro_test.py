@@ -53,11 +53,12 @@ class TestProcessing:
 
     def test_port_context(self):
         a = Macro(path=Macro.example_init["path"])
-        assert len(a.ports_in) == 2
+        assert len(a.ports_in) == 1
         assert len(a.ports_out) == 2
         assert a.ports_in.Noop_any.key == "Noop_any"
         assert a.ports_in.Noop_any.label == "Noop: Any"
         assert a.nodes[0].ports_in.any.key == "any"
+        assert not 'Noop2_any' in a.ports_in._fields, "Should only contain keys for connectable ports"
 
     def test_connectable_input(self):
         in_python = In_python(data=[100])

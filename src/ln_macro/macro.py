@@ -91,6 +91,7 @@ class MacroHelper(Node, abstract_class=True):
             # NOTE: we set this here as we don't want the suffix to bleed into the port names etc
             #    only for keeping the node name unique within the subgraph and the serialized graph
             #    TODO: double check if this results in any issues down the road -> so far test are looking good -yh
+            #       -> only issue is that the node name changes between multiple graph loads -> and thus the gui cannot save the running layout properly
             n.name = f"{n.name}{self.node_macro_id_suffix}"
             # following: https://stackoverflow.com/a/28127947
             n.compact_settings = compact_settings.__get__(n, n.__class__)
@@ -294,9 +295,13 @@ class Macro(MacroHelper):
 
         # Populate the lists using classic for loops
         for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=True):
-            macro_port = port_value.__class__(f"{cls._get_node_name(n)}: {port_value.label}", optional=port_value.optional, key=port_value.key)
-            in_field_names.append(cls._encode_node_port(n, port_name))
-            in_field_defaults.append(macro_port)
+            # only keep those inputs that aren't already taken
+            # TODO: check if we could add this functionality to the port class itself, this feels kinda hacky -yh
+            # could also consider adding it to the node class itself
+            if id(port_value) not in [id(x._recv_port) for x in n.input_connections]:
+                macro_port = port_value.__class__(f"{cls._get_node_name(n)}: {port_value.label}", optional=port_value.optional, key=port_value.key)
+                in_field_names.append(cls._encode_node_port(n, port_name))
+                in_field_defaults.append(macro_port)
             
         for n, port_name, port_value in cls.all_ports_sub_nodes(nodes, ret_in=False):
             macro_port = port_value.__class__(f"{cls._get_node_name(n)}: {port_value.label}", optional=port_value.optional, key=port_value.key)
@@ -319,7 +324,7 @@ class Macro(MacroHelper):
         return new_obj
 
 if __name__ == '__main__':
-    # m = Macro(path=Macro.example_init["path"]) 
+    m = Macro(path=Macro.example_init["path"]) 
     # m = Macro(path="/Users/yale/Repositories/livenodes/packages/ln_macro/src/ln_macro/noop_nested_2.yml")
     # print(m.ports_in)
 
