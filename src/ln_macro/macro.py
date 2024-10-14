@@ -7,8 +7,8 @@ file_path = pathlib.Path(__file__).parent.resolve()
 from enum import Enum
 # NOTE: this is only needed/used atm because for some reason isinstance(node, MacroHelper) is not always true for nodes from macros...
 class MAttr(Enum):
-    macro = 1
-    macro_child = 2
+    macro = 10
+    macro_child = 11
 
 class MacroHelper(Node, abstract_class=True):
     attrs = [MAttr.macro]
@@ -95,7 +95,10 @@ class MacroHelper(Node, abstract_class=True):
             n.name = f"{n.name}{self.node_macro_id_suffix}"
             # following: https://stackoverflow.com/a/28127947
             n.compact_settings = compact_settings.__get__(n, n.__class__)
-            n._macro_parent = self
+            if hasattr(n, '_macro_parent'):
+                n._macro_parent.append(self)
+            else:
+                n._macro_parent = [self]
 
     @staticmethod
     def name(name, path):
@@ -153,14 +156,11 @@ class MacroHelper(Node, abstract_class=True):
         
         return mapped_node, mapped_port
     
-    def to_compact_dict(self, graph=False):
-        return self.nodes[0].to_compact_dict(graph=graph)
-    
     @staticmethod
     def adjust(node, port, in_ports):
         if not hasattr(node, '_macro_parent'):
             return node, port
-        m_parent = node._macro_parent
+        m_parent = node._macro_parent[-1]
         tmp_key = f"{str(node)}.{port.key}".replace(m_parent.node_macro_id_suffix, '')
         if in_ports:
             _port = getattr(m_parent.ports_in, m_parent.own_in_port_reverse[tmp_key])
@@ -169,6 +169,12 @@ class MacroHelper(Node, abstract_class=True):
         _node = m_parent._serialize_name()
         return _node, _port
     
+    def get_non_macro_node(self):
+        if hasattr(self.nodes[0], 'get_non_macro_node'):
+            return self.nodes[0].get_non_macro_node()
+         # as all nodes are connected it doesn't matter from where we start to discover
+        return self.nodes[0]
+
     @staticmethod
     def _discover_graph_excl_macros(node, direction='both', sort=True):
         if isinstance(node, MacroHelper) or MAttr.macro in node.attrs:
@@ -184,7 +190,7 @@ class MacroHelper(Node, abstract_class=True):
         nodes = []
         for n in node.discover_graph(node, direction=direction, sort=sort):
             if hasattr(n, '_macro_parent'):
-                nodes.append(n._macro_parent)
+                nodes.extend(n._macro_parent)
         return node.remove_discovered_duplicates(nodes)
         
     def is_unique_macro_name(self, name, macro_list):
@@ -201,7 +207,7 @@ class MacroHelper(Node, abstract_class=True):
         return self.create_unique_name(f"{base}_1", macro_list)
     
     def make_sure_name_is_unique(self, name):
-        macro_list = self.discover_graph_macros_only(self.nodes[0]) # as all nodes are connected it doesn't matter from where we start to discover
+        macro_list = self.discover_graph_macros_only(self.get_non_macro_node())
         if not self.is_unique_macro_name(name, macro_list):
             new_name = self.create_unique_name(name, macro_list)
             self.warn(f"{str(self)} not unique in new graph. Renaming Node to: {new_name}")
@@ -223,10 +229,11 @@ class MacroHelper(Node, abstract_class=True):
     
     @staticmethod
     def _get_node_name(node):
-        suffix = ''
+        name = node.name
         if hasattr(node, '_macro_parent'):
-            suffix = node._macro_parent.node_macro_id_suffix
-        return node.name.replace(suffix, '')
+            for n in node._macro_parent:
+                name = name.replace(n.node_macro_id_suffix, '')
+        return name
 
     def _add_output(self, connection):
         new_obj = self
@@ -245,9 +252,10 @@ class MacroHelper(Node, abstract_class=True):
             #   -> we could prefix the node name with the macro name
             #   -> but the macro name is only truly set after the macro is created and connected to the subgraph
             #   -> is there a better unique prefix, that we know not yet exists in a graph?
-            #   -> here the cat bites it's own tail... =
+            #   -> here the dragon bites it's own tail... =
             #   => change the nodes name, rather than the macro's name
             emit_port = new_obj._encode_node_port(self._emit_node, self._emit_port.key).replace(new_obj.node_macro_id_suffix, '')
+            print('seralizing con', emit_port)
             return f"{new_obj._serialize_name()}.{emit_port} -> {str(self._recv_node)}.{str(self._recv_port.key)}"
 
         # it is important we keep the original function here, as we might patch this multiple times 
@@ -280,6 +288,14 @@ class MacroHelper(Node, abstract_class=True):
         connection._recv_node = mapped_node
         connection._recv_port = mapped_port
         super(mapped_node.__class__, mapped_node).remove_input_by_connection(connection)
+
+
+    # --- mapping functions ---
+    def to_compact_dict(self, graph=False):
+        return self.get_non_macro_node().to_compact_dict(graph=graph)
+    
+    def dot_graph_full(self, filename=None, file_type='png', **kwargs):
+        return self.get_non_macro_node().dot_graph_full(filename=filename, file_type=file_type, **kwargs)
 
 
 class Macro(MacroHelper):

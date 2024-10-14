@@ -210,3 +210,6 @@ class TestProcessing:
         for n in macro.nodes:
             assert n.compute_on == "1:2"
     
+    
+    # def test_nested_macro(self):
+    #     macro = Macro(path=Macro.example_init["path"].replace('noop.yaml', 'noop_nested.yaml'))
