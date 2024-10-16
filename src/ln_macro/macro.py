@@ -85,6 +85,10 @@ class MacroHelper(Node, abstract_class=True):
                     inp._recv_node, inp._recv_port = closure_self.adjust(inp._recv_node, inp._recv_port, in_ports=True) # recv node -> their input port is relevant
                     inputs.append(inp.serialize_compact())
             return config, inputs, closure_self._serialize_name()
+        
+        def get_name_resolve_macro(self):
+            for m in self._macro_parent:
+                name = name.replace(m.node_macro_id_suffix, f"({str(m)})")
 
         for n in nodes:
             # set a unique name for each node, so that it is not changed during connection into any existing graph
@@ -95,10 +99,10 @@ class MacroHelper(Node, abstract_class=True):
             n.name = f"{n.name}{self.node_macro_id_suffix}"
             # following: https://stackoverflow.com/a/28127947
             n.compact_settings = compact_settings.__get__(n, n.__class__)
-            if hasattr(n, '_macro_parent'):
-                n._macro_parent.append(self)
-            else:
-                n._macro_parent = [self]
+            n.get_name_resolve_macro = get_name_resolve_macro.__get__(n, n.__class__)
+            if not hasattr(n, '_macro_parent'):
+                n._macro_parent = []
+            n._macro_parent.append(self)
 
     @staticmethod
     def name(name, path):
