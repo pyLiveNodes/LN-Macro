@@ -87,8 +87,10 @@ class MacroHelper(Node, abstract_class=True):
             return config, inputs, closure_self._serialize_name()
         
         def get_name_resolve_macro(self):
+            name = self.name
             for m in self._macro_parent:
                 name = name.replace(m.node_macro_id_suffix, f"({str(m)})")
+            return name
 
         for n in nodes:
             # set a unique name for each node, so that it is not changed during connection into any existing graph
