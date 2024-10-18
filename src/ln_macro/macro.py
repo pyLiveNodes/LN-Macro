@@ -337,6 +337,7 @@ class Macro(MacroHelper):
         cls_name = f"Macro:{path.split('/')[-1].split('.')[-2]}"
         new_cls = type(cls_name, (MacroHelper, ), {})
         new_cls.example_init["path"] = path
+        new_cls.example_init["name"] = new_cls.name(name, path)
         new_cls.ports_in = type('Macro_Ports_In', (Ports_collection,), dict(zip(in_field_names, in_field_defaults)))()
         new_cls.ports_out = type('Macro_Ports_Out', (Ports_collection,), dict(zip(out_field_names, out_field_defaults)))()
         
