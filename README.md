@@ -18,7 +18,7 @@ Yale
 
 ## Installation
 
-`pip install ln_macro --extra-index-url https://package_puller:8qYs4hBAsmAHJ5AdS_y9@gitlab.csl.uni-bremen.de/api/v4/groups/368/-/packages/pypi/simple`
+`pip install ln_macro `
 
 ## Docs
 

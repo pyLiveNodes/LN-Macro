@@ -5,9 +5,8 @@ description = "LiveNodes: node based live streaming sensor/data and visualizatio
 authors = [
     { name = "Yale Hartmann", email = "yale.hartmann@uni-bremen.de" }
 ]
-# TODO: figure out how/if to add livenodes here... for now install manually in venv via:
-# pip install . --extra-index-url https://package_puller:8qYs4hBAsmAHJ5AdS_y9@gitlab.csl.uni-bremen.de/api/v4/groups/368/-/packages/pypi/simple
-# pip install -e . --extra-index-url https://package_puller:8qYs4hBAsmAHJ5AdS_y9@gitlab.csl.uni-bremen.de/api/v4/groups/368/-/packages/pypi/simple
+readme = "README.md"
+license = {file = "LICENSE"}
 dependencies = [
     "livenodes>=0.12.1b6",
     "LN-Ports>=0.12.1b8",
